@@ -1,0 +1,61 @@
+:root {
+  --dark-pink: #A2135D;
+  --pink: #E0358D;
+  --black: #121212;
+  --dark-gray: #1E1E1E;
+  --gray: #2D2D2D;
+  --light-gray: #AAAAAA;
+  --white: #FFFFFF;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--black);
+  color: var(--white);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: var(--dark-gray);
+  display: flex;
+  flex-direction: column;
+}
+
+input, select {
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--gray);
+  color: var(--white);
+  border: 1px solid #444;
+  font-size: 14px;
+  width: 100%;
+}
+
+button {
+  background-color: var(--dark-pink);
+  color: var(--white);
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:disabled { opacity: 0.5; }
+
+.warning-banner {
+  background-color: #5c0909;
+  border: 1px solid #ff3333;
+  color: #ffcccc;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 12px;
+  line-height: 1.4;
+}
