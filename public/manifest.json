@@ -1,0 +1,9 @@
+{
+  "short_name": "Hope",
+  "name": "Hope - Chattanooga's Trusted Rides for Women",
+  "start_url": "/",
+  "background_color": "#121212",
+  "theme_color": "#A2135D",
+  "display": "standalone",
+  "orientation": "portrait"
+}
