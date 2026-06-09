@@ -67,53 +67,66 @@
 
     .nav-cta:hover { background: var(--pink); }
 
-    /* HERO */
+    /* HERO - Full Page Logo Background */
     .hero {
-      background: linear-gradient(135deg, #1a0010 0%, #2d0020 50%, #121212 100%);
-      padding: 60px 24px 50px;
+      background-image: url('https://media.base44.com/images/public/6a276d56de2d596e49ec189a/8cf8dedc3_IMG_1097.jpeg');
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
       text-align: center;
       position: relative;
       overflow: hidden;
+      padding: 0 24px 60px;
     }
 
-    .hero::before {
+    .hero::after {
       content: '';
       position: absolute;
-      top: -80px; left: -80px;
-      width: 300px; height: 300px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(162,19,93,0.3), transparent);
+      bottom: 0; left: 0; right: 0;
+      height: 55%;
+      background: linear-gradient(to top, rgba(18,18,18,0.97) 0%, rgba(18,18,18,0.7) 50%, transparent 100%);
       pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
     }
 
     .hero-badge {
       display: inline-block;
-      background: rgba(162,19,93,0.25);
+      background: rgba(162,19,93,0.3);
       border: 1px solid var(--dark-pink);
       color: var(--pink);
       font-size: 12px;
       font-weight: 700;
       padding: 6px 14px;
       border-radius: 20px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       letter-spacing: 1px;
       text-transform: uppercase;
     }
 
     .hero h1 {
-      font-size: clamp(32px, 8vw, 56px);
+      font-size: clamp(28px, 7vw, 52px);
       font-weight: 900;
       line-height: 1.1;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .hero h1 span { color: var(--pink); }
 
     .hero p {
       font-size: 16px;
-      color: var(--light-gray);
+      color: rgba(220,220,220,0.9);
       max-width: 500px;
-      margin: 0 auto 32px;
+      margin: 0 auto 28px;
       line-height: 1.6;
     }
 
@@ -391,14 +404,16 @@
     <a href="#book" class="nav-cta">Book a Ride</a>
   </nav>
 
-  <!-- HERO -->
+  <!-- HERO - Full Page Logo -->
   <div class="hero">
-    <div class="hero-badge">🌸 Women-Driven · Women-Focused · Chattanooga, TN</div>
-    <h1>Rides You Can<br /><span>Actually Trust</span></h1>
-    <p>Hope is Chattanooga's safe ride service designed for women and families — driven by women, for women. No surprises. No strangers. Just your driver and your peace of mind.</p>
-    <div class="hero-buttons">
-      <a href="#book" class="btn-primary">📍 Book Your Ride</a>
-      <a href="#how" class="btn-secondary">How It Works</a>
+    <div class="hero-content">
+      <div class="hero-badge">🌸 Women-Driven · Women-Focused · Chattanooga, TN</div>
+      <h1>Rides You Can<br /><span>Actually Trust</span></h1>
+      <p>Hope is Chattanooga's safe ride service designed for women and families — driven by women, for women. No surprises. No strangers. Just your driver and your peace of mind.</p>
+      <div class="hero-buttons">
+        <a href="#book" class="btn-primary">📍 Book Your Ride</a>
+        <a href="#how" class="btn-secondary">How It Works</a>
+      </div>
     </div>
   </div>
 
