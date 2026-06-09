@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Hope Rideshare – Chattanooga's Trusted Rides for Women</title>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    :root {
+      --dark-pink: #A2135D;
+      --pink: #E0358D;
+      --black: #121212;
+      --dark-gray: #1E1E1E;
+      --gray: #2D2D2D;
+      --light-gray: #AAAAAA;
+      --white: #FFFFFF;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: var(--black);
+      color: var(--white);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--dark-gray);
+      border-bottom: 2px solid var(--dark-pink);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--pink);
+      letter-spacing: 2px;
+    }
+
+    .nav-tagline {
+      font-size: 11px;
+      color: var(--light-gray);
+      display: none;
+    }
+
+    @media (min-width: 480px) { .nav-tagline { display: block; } }
+
+    .nav-cta {
+      background: var(--dark-pink);
+      color: var(--white);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .nav-cta:hover { background: var(--pink); }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #1a0010 0%, #2d0020 50%, #121212 100%);
+      padding: 60px 24px 50px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -80px; left: -80px;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(162,19,93,0.3), transparent);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(162,19,93,0.25);
+      border: 1px solid var(--dark-pink);
+      color: var(--pink);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 8vw, 56px);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 span { color: var(--pink); }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--light-gray);
+      max-width: 500px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: var(--dark-pink);
+      color: var(--white);
+      padding: 16px 28px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: inline-block;
+    }
+
+    .btn-primary:hover { background: var(--pink); transform: translateY(-2px); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--white);
+      padding: 16px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      border: 2px solid #444;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      display: inline-block;
+    }
+
+    .btn-secondary:hover { border-color: var(--pink); }
+
+    /* TRUST BAR */
+    .trust-bar {
+      background: var(--dark-gray);
+      border-top: 1px solid #2a2a2a;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--light-gray);
+      font-weight: 600;
+    }
+
+    .trust-item span:first-child { font-size: 18px; }
+
+    /* SECTIONS */
+    section { padding: 60px 24px; max-width: 900px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--pink);
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: clamp(24px, 5vw, 36px);
+      font-weight: 800;
+      margin-bottom: 14px;
+      line-height: 1.2;
+    }
+
+    .section-sub {
+      font-size: 15px;
+      color: var(--light-gray);
+      line-height: 1.6;
+      max-width: 580px;
+      margin-bottom: 40px;
+    }
+
+    /* FEATURE CARDS */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--dark-gray);
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 28px 22px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover { border-color: var(--dark-pink); transform: translateY(-3px); }
+
+    .card-icon { font-size: 32px; margin-bottom: 14px; }
+
+    .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+
+    .card p { font-size: 14px; color: var(--light-gray); line-height: 1.55; }
+
+    /* PRICING */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    .pricing-card {
+      background: var(--dark-gray);
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 28px 22px;
+      text-align: center;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--dark-pink);
+      background: linear-gradient(160deg, #1f0014, #1a1a1a);
+    }
+
+    .pricing-card .rate {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--pink);
+      margin: 12px 0 4px;
+    }
+
+    .pricing-card .rate-label {
+      font-size: 12px;
+      color: var(--light-gray);
+      margin-bottom: 18px;
+    }
+
+    .pricing-card ul {
+      list-style: none;
+      text-align: left;
+    }
+
+    .pricing-card ul li {
+      font-size: 13px;
+      color: var(--light-gray);
+      padding: 5px 0;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .pricing-card ul li:last-child { border-bottom: none; }
+
+    /* SERVICE AREA */
+    .area-banner {
+      background: linear-gradient(135deg, #1a0010, #1e1e1e);
+      border: 1px solid var(--dark-pink);
+      border-radius: 16px;
+      padding: 36px 28px;
+      text-align: center;
+    }
+
+    .area-banner h3 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+
+    .area-banner p { font-size: 14px; color: var(--light-gray); line-height: 1.6; }
+
+    /* HOW IT WORKS */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      min-width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--dark-pink);
+      color: var(--white);
+      font-weight: 900;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .step-content p { font-size: 14px; color: var(--light-gray); line-height: 1.5; }
+
+    /* SAFETY */
+    .safety-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .safety-item {
+      background: var(--dark-gray);
+      border-left: 3px solid var(--dark-pink);
+      border-radius: 0 10px 10px 0;
+      padding: 16px 18px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .safety-item strong { display: block; margin-bottom: 4px; color: var(--pink); }
+
+    /* CTA SECTION */
+    .cta-section {
+      background: linear-gradient(135deg, #1a0010 0%, #2d0020 100%);
+      border-top: 1px solid var(--dark-pink);
+      border-bottom: 1px solid var(--dark-pink);
+      text-align: center;
+      padding: 60px 24px;
+    }
+
+    .cta-section h2 { font-size: clamp(24px, 5vw, 36px); font-weight: 800; margin-bottom: 12px; }
+
+    .cta-section p { font-size: 15px; color: var(--light-gray); margin-bottom: 28px; }
+
+    /* FOOTER */
+    footer {
+      background: var(--dark-gray);
+      border-top: 1px solid #2a2a2a;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    footer .footer-logo { font-size: 22px; font-weight: 900; color: var(--pink); margin-bottom: 8px; }
+
+    footer p { font-size: 13px; color: var(--light-gray); line-height: 1.6; }
+
+    footer .footer-links {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    footer .footer-links a { font-size: 13px; color: var(--light-gray); transition: color 0.2s; }
+    footer .footer-links a:hover { color: var(--pink); }
+
+    .divider {
+      height: 1px;
+      background: #2a2a2a;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">HOPE</div>
+    <div class="nav-tagline">Chattanooga's Trusted Rides for Women</div>
+    <a href="#book" class="nav-cta">Book a Ride</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🌸 Women-Driven · Women-Focused · Chattanooga, TN</div>
+    <h1>Rides You Can<br /><span>Actually Trust</span></h1>
+    <p>Hope is Chattanooga's safe ride service designed for women and families — driven by women, for women. No surprises. No strangers. Just your driver and your peace of mind.</p>
+    <div class="hero-buttons">
+      <a href="#book" class="btn-primary">📍 Book Your Ride</a>
+      <a href="#how" class="btn-secondary">How It Works</a>
+    </div>
+  </div>
+
+  <!-- TRUST BAR -->
+  <div class="trust-bar">
+    <div class="trust-item"><span>👩</span><span>Women Drivers Only</span></div>
+    <div class="trust-item"><span>🔒</span><span>Secure Card Payments</span></div>
+    <div class="trust-item"><span>📍</span><span>Live Ride Tracking</span></div>
+    <div class="trust-item"><span>🐾</span><span>Pet Friendly</span></div>
+    <div class="trust-item"><span>👶</span><span>Child Safe</span></div>
+  </div>
+
+  <!-- WHY HOPE -->
+  <section>
+    <div class="section-label">Why Hope</div>
+    <h2 class="section-title">Safety isn't a feature.<br />It's our whole mission.</h2>
+    <p class="section-sub">Big rideshare apps treat safety as a checkbox. We built Hope around it. Every ride is handled by a verified woman driver you can count on.</p>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-icon">👩‍✈️</div>
+        <h3>Women-Only Drivers</h3>
+        <p>Every Hope driver is a woman. That's not marketing — it's our entire model. You'll never get in a car with a stranger.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📲</div>
+        <h3>Real-Time Tracking</h3>
+        <p>Watch your driver's location live from the moment they accept your ride until you're safely at your destination.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💳</div>
+        <h3>Cashless & Secure</h3>
+        <p>Pay upfront by card through Stripe. No cash, no awkward exchanges. Your fare is locked in before your ride begins.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🐾</div>
+        <h3>Pets Welcome</h3>
+        <p>Bringing your fur baby? No problem. Just let us know and we'll have a pet-friendly ride ready for you.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">👶</div>
+        <h3>Family Friendly</h3>
+        <p>Traveling with kids? Hope accommodates families. Note: car seats must be provided by the rider per Tennessee law.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌙</div>
+        <h3>After-Hours Available</h3>
+        <p>Need a ride after 5 PM? Our after-hours service keeps you safe when you need it most. Night rate applies.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="section-label">How It Works</div>
+    <h2 class="section-title">Book a ride in minutes.</h2>
+    <p class="section-sub">No app download required. Book from your phone browser and you're on your way.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Create Your Free Account</h4>
+          <p>Sign up with your name, phone, and email. It takes 30 seconds and your info is always private.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Enter Your Pickup & Dropoff</h4>
+          <p>Type your addresses or choose from quick picks like Erlanger, CHI Memorial, or Parkridge Medical Center.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>See Your Fare Upfront</h4>
+          <p>Your total is calculated before you pay. No surge pricing surprises. What you see is what you pay.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Pay Securely & Get Picked Up</h4>
+          <p>Complete payment through Stripe, then track your driver live. Hope will be there.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PRICING -->
+  <section id="pricing">
+    <div class="section-label">Pricing</div>
+    <h2 class="section-title">Honest fares. No surprises.</h2>
+    <p class="section-sub">Your fare is calculated upfront based on distance, time, and any add-ons. Locked in before you pay.</p>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div>🌞 Standard Rate</div>
+        <div class="rate">$8.00</div>
+        <div class="rate-label">Base fare (daytime)</div>
+        <ul>
+          <li>➕ $1.50 per mile</li>
+          <li>➕ $0.30 per minute</li>
+          <li>➕ $0.50 per extra stop</li>
+          <li>➕ $5.00 per pet</li>
+          <li>✅ No hidden fees</li>
+        </ul>
+      </div>
+      <div class="pricing-card featured">
+        <div>🌙 After-Hours Rate</div>
+        <div class="rate">$10.00</div>
+        <div class="rate-label">Base fare (5 PM – 8 PM)</div>
+        <ul>
+          <li>➕ $1.75 per mile</li>
+          <li>➕ $0.50 per minute</li>
+          <li>➕ $0.50 per extra stop</li>
+          <li>➕ $5.00 per pet</li>
+          <li>✅ Same trusted service</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div>⚠️ Cancellation Policy</div>
+        <div class="rate" style="font-size: 20px; margin-top: 12px;">Please Note</div>
+        <div class="rate-label">Rider & Driver Cancellations</div>
+        <ul>
+          <li>🚗 Driver cancel: $15 + $10 fuel</li>
+          <li>⏱️ Wait over 5 min: +$0.15/min</li>
+          <li>🪑 Missing car seat: $15 + $10</li>
+          <li>💺 Car seats provided by rider</li>
+          <li>📋 TN law applies to child seats</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SERVICE AREA -->
+  <section>
+    <div class="section-label">Service Area</div>
+    <h2 class="section-title">Proudly serving Chattanooga.</h2>
+    <p class="section-sub">Hope operates throughout Chattanooga and the surrounding area. Hospitals, schools, errands, appointments — wherever you need to go.</p>
+    <div class="area-banner">
+      <h3>📍 Chattanooga, Tennessee</h3>
+      <p>Including Erlanger Baroness Hospital · CHI Memorial · Parkridge Medical Center · UTC Campus · Downtown · Hixson · East Ridge · Red Bank · Signal Mountain and more.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SAFETY COMMITMENTS -->
+  <section>
+    <div class="section-label">Safety First</div>
+    <h2 class="section-title">Our commitments to you.</h2>
+    <p class="section-sub">Hope isn't just a name. It's what we want every rider to feel.</p>
+    <div class="safety-list">
+      <div class="safety-item"><strong>Verified Women Drivers</strong>Every driver on Hope is a verified woman — always.</div>
+      <div class="safety-item"><strong>Live Location Sharing</strong>Track your ride in real time from dispatch to dropoff.</div>
+      <div class="safety-item"><strong>Upfront Pricing</strong>Know your fare before you commit. Zero surge pricing.</div>
+      <div class="safety-item"><strong>Secure Payments</strong>All payments processed through Stripe — bank-level encryption.</div>
+      <div class="safety-item"><strong>5-Minute Arrival Window</strong>Your driver will wait up to 5 minutes at pickup at no extra charge.</div>
+      <div class="safety-item"><strong>Private Information</strong>Your personal details are never shared with third parties.</div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section" id="book">
+    <h2>Ready for a safer ride?</h2>
+    <p>Join Hope today — it takes 30 seconds to create your free account and book your first ride.</p>
+    <a href="/app" class="btn-primary" style="display: inline-block;">🌸 Book My Ride Now</a>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">HOPE</div>
+    <p>Chattanooga's Trusted Rides for Women, By Women</p>
+    <div class="footer-links">
+      <a href="#how">How It Works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#book">Book a Ride</a>
+    </div>
+    <p style="font-size: 12px; margin-top: 8px;">© 2026 Hope Rideshare · Chattanooga, Tennessee · All rights reserved.</p>
+  </footer>
+
+</body>
+</html>
