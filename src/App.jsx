@@ -197,7 +197,7 @@ export default function App() {
 
   // ── AUTH ─────────────────────────────────────────────────────────────────
   if (view === 'auth') return (
-    <div style={{ minHeight: '100vh', background: 'var(--black)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(rgba(18,18,18,0.82), rgba(18,18,18,0.92)), url(https://base44.app/api/apps/6a276d56de2d596e49ec189a/files/mp/public/6a276d56de2d596e49ec189a/9cee0ee37_fd633bcfc_IMG_1098.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <img src={LOGO} alt="Hope" style={{ width: '120px', borderRadius: '16px', marginBottom: '20px' }} />
       <h2 style={{ color: '#fff', margin: '0 0 4px', fontSize: '24px' }}>Hope Rideshare</h2>
       <p style={{ color: 'var(--light-gray)', fontSize: '13px', marginBottom: '28px' }}>Chattanooga's Trusted Rides for Women</p>
@@ -223,7 +223,7 @@ export default function App() {
   if (view === 'rider') {
     const firstName = profile?.full_name?.split(' ')[0] || 'there';
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--black)', fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(rgba(18,18,18,0.93), rgba(18,18,18,0.97)), url(https://base44.app/api/apps/6a276d56de2d596e49ec189a/files/mp/public/6a276d56de2d596e49ec189a/9cee0ee37_fd633bcfc_IMG_1098.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: 'system-ui, sans-serif' }}>
         {/* Header */}
         <div style={{ background: 'var(--black)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -396,7 +396,7 @@ export default function App() {
     const activeForDriver = pendingRequests.filter(r => r.status !== 'pending');
 
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--black)', fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(rgba(18,18,18,0.93), rgba(18,18,18,0.97)), url(https://base44.app/api/apps/6a276d56de2d596e49ec189a/files/mp/public/6a276d56de2d596e49ec189a/9cee0ee37_fd633bcfc_IMG_1098.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: 'system-ui, sans-serif' }}>
         {/* Header */}
         <div style={{ background: 'var(--black)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
