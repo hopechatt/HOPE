@@ -1,41 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY, ADMIN_UID } from './config';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_UID } from './config';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const CHATTANOOGA_QUICK_PICKS = [
-  { name: "Erlanger Baroness", address: "975 E 3rd St, Chattanooga, TN 37403" },
-  { name: "CHI Memorial", address: "2525 de Sales Ave, Chattanooga, TN 37404" },
-  { name: "Parkridge Medical", address: "2333 McCallie Ave, Chattanooga, TN 37404" }
-];
+const LOGO = "https://media.base44.com/images/public/6a276d56de2d596e49ec189a/8cf8dedc3_IMG_1097.jpeg";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [view, setView] = useState('auth');
   const [loading, setLoading] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // login | register
 
+  // Auth fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // Rider booking
+  const [riderTab, setRiderTab] = useState('home'); // home | book | schedule | history
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [stops, setStops] = useState([]);
-  const [pets, setPets] = useState(0);
-  const [children, setChildren] = useState(0);
-  const [childAges, setChildAges] = useState('');
-  const [isAfterHours, setIsAfterHours] = useState(false);
-  const [estimatedFare, setEstimatedFare] = useState("0.00");
-
+  const [hasPet, setHasPet] = useState(false);
+  const [rideHistory, setRideHistory] = useState([]);
   const [activeRide, setActiveRide] = useState(null);
+
+  // Driver
+  const [driverTab, setDriverTab] = useState('pending'); // pending | active | history
   const [pendingRequests, setPendingRequests] = useState([]);
   const [driverOnline, setDriverOnline] = useState(false);
+  const [completedRides, setCompletedRides] = useState([]);
+  const [todayRides, setTodayRides] = useState([]);
   const [waitTime, setWaitTime] = useState(0);
-  const [weeklyEarnings, setWeeklyEarnings] = useState({ total: 0, trips: 0, hours: 0 });
   const timerRef = useRef(null);
+
+  const isAdmin = user?.id === ADMIN_UID;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,49 +53,32 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase.channel('ride-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, (payload) => {
-        if (user.id === ADMIN_UID) fetchPendingRequests();
-        if (payload.new && (payload.new.rider_id === user.id || user.id === ADMIN_UID)) {
-          setActiveRide(payload.new);
-          if (payload.new.status === 'completed') setView(user.id === ADMIN_UID ? 'driver_dashboard' : 'client_dashboard');
-          else if (payload.new.status !== 'pending') setView('active_ride');
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
+        if (isAdmin) { fetchPendingRequests(); fetchDriverStats(); }
+        else fetchRiderActiveRide();
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   useEffect(() => {
-    if (pickup && dropoff) {
-      const base = isAfterHours ? 10.00 : 8.00;
-      const mockMiles = 5.0;
-      const mockMins = 12.0;
-      const perMile = isAfterHours ? 1.75 : 1.50;
-      const perMin = isAfterHours ? 0.50 : 0.30;
-      const subtotal = base + (mockMiles * perMile) + (mockMins * perMin) + (pets * 5.00) + (stops.length * 0.50);
-      setEstimatedFare(subtotal.toFixed(2));
-    }
-  }, [pickup, dropoff, stops, pets, isAfterHours]);
-
-  useEffect(() => {
-    if (activeRide?.status === 'arrived' && user?.id === ADMIN_UID) {
-      timerRef.current = setInterval(() => setWaitTime(prev => prev + 1), 1000);
-    } else {
-      clearInterval(timerRef.current);
-      setWaitTime(0);
-    }
+    if (activeRide?.status === 'arrived' && isAdmin) {
+      timerRef.current = setInterval(() => setWaitTime(p => p + 1), 1000);
+    } else { clearInterval(timerRef.current); setWaitTime(0); }
     return () => clearInterval(timerRef.current);
-  }, [activeRide?.status, user]);
+  }, [activeRide?.status]);
 
   const handleUserSession = async (currUser) => {
     setUser(currUser);
     const { data } = await supabase.from('profiles').select('*').eq('id', currUser.id).single();
     setProfile(data);
     if (currUser.id === ADMIN_UID) {
-      setView('driver_dashboard');
+      setView('driver');
       fetchPendingRequests();
-      fetchWeeklyEarnings();
+      fetchDriverStats();
     } else {
-      setView('client_dashboard');
+      setView('rider');
+      fetchRiderHistory(currUser.id);
+      fetchRiderActiveRide(currUser.id);
     }
   };
 
@@ -102,22 +87,32 @@ export default function App() {
     setPendingRequests(data || []);
   };
 
-  const fetchWeeklyEarnings = async () => {
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const { data } = await supabase.from('rides')
-      .select('calculated_fare, completed_at')
-      .eq('status', 'completed')
-      .gte('completed_at', weekAgo.toISOString());
-    if (data) {
-      const total = data.reduce((sum, r) => sum + (r.calculated_fare || 0), 0);
-      setWeeklyEarnings({ total: total.toFixed(2), trips: data.length, hours: (data.length * 0.55).toFixed(1) });
-    }
+  const fetchDriverStats = async () => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const { data: todayData } = await supabase.from('rides').select('*').gte('created_at', today.toISOString());
+    setTodayRides(todayData || []);
+    const { data: compData } = await supabase.from('rides').select('*').eq('status', 'completed').order('completed_at', { ascending: false }).limit(20);
+    setCompletedRides(compData || []);
+    // check active
+    const { data: actData } = await supabase.from('rides').select('*').in('status', ['accepted','arrived','in_progress']).limit(1);
+    if (actData && actData.length > 0) setActiveRide(actData[0]);
+  };
+
+  const fetchRiderHistory = async (uid) => {
+    const { data } = await supabase.from('rides').select('*').eq('rider_id', uid).order('created_at', { ascending: false }).limit(10);
+    setRideHistory(data || []);
+  };
+
+  const fetchRiderActiveRide = async (uid) => {
+    const id = uid || user?.id;
+    if (!id) return;
+    const { data } = await supabase.from('rides').select('*').eq('rider_id', id).in('status', ['pending','accepted','arrived','in_progress']).limit(1);
+    if (data && data.length > 0) setActiveRide(data[0]);
+    else setActiveRide(null);
   };
 
   const handleSignUp = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault(); setLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { alert(error.message); setLoading(false); return; }
     if (data?.user) {
@@ -127,294 +122,457 @@ export default function App() {
     setLoading(false);
   };
 
-  const triggerAudioNav = (phrase) => {
-    if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+  const handleLogin = async (e) => {
+    e.preventDefault(); setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+    setLoading(false);
   };
 
-  const processStripeCheckout = async () => {
+  const calcFare = () => {
+    if (!pickup || !dropoff) return { base: 8, distance: 0, duration: 0, wait: 0, pet: 0, total: 0 };
+    const base = 8.00, mockMiles = 8.5, mockMins = 18;
+    const distance = mockMiles * 1.50;
+    const duration = mockMins * 0.30;
+    const pet = hasPet ? 5 : 0;
+    const total = base + distance + duration + pet;
+    return { base, distance: distance.toFixed(2), duration: duration.toFixed(2), wait: '0.00', pet: pet.toFixed(2), total: total.toFixed(2), miles: mockMiles, mins: mockMins };
+  };
+
+  const confirmDispatch = async () => {
+    const fare = calcFare();
+    if (!pickup || !dropoff) { alert("Please enter pickup and dropoff addresses."); return; }
     setLoading(true);
     try {
-      const res = await fetch('/.netlify/functions/create-stripe-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amountInCents: Math.round(parseFloat(estimatedFare) * 100),
-          riderEmail: user.email,
-          pickupAddress: pickup,
-          dropoffAddress: dropoff
-        })
-      });
-      const session = await res.json();
       await supabase.from('rides').insert({
-        rider_id: user.id, rider_name: profile?.full_name || user.email, rider_phone: profile?.phone_number || '',
-        pickup_address: pickup, pickup_lat: 35.0456, pickup_lng: -85.3097,
-        dropoff_address: dropoff, dropoff_lat: 35.0515, dropoff_lng: -85.2954,
-        calculated_fare: parseFloat(estimatedFare), stripe_session_id: session.id, status: 'pending',
-        additional_stops: JSON.stringify(stops), pet_count: pets, child_count: children,
-        child_ages: childAges, is_after_hours: isAfterHours
+        rider_id: user.id,
+        rider_name: profile?.full_name || user.email,
+        rider_phone: profile?.phone_number || '',
+        pickup_address: pickup,
+        pickup_lat: 35.0456, pickup_lng: -85.3097,
+        dropoff_address: dropoff,
+        dropoff_lat: 35.0515, dropoff_lng: -85.2954,
+        calculated_fare: parseFloat(fare.total),
+        status: 'pending',
+        additional_stops: JSON.stringify(stops),
+        pet_count: hasPet ? 1 : 0,
+        is_after_hours: false
       });
-      window.location.href = session.url;
+      setPickup(''); setDropoff(''); setStops([]); setHasPet(false);
+      setRiderTab('home');
+      alert("🚗 Ride requested! Your driver will be notified.");
     } catch (err) {
-      alert("Payment error: " + err.message);
+      alert("Error: " + err.message);
     } finally { setLoading(false); }
   };
 
   const updateRideStatus = async (rideId, nextStatus) => {
     const update = { status: nextStatus };
-    if (nextStatus === 'accepted') { update.driver_id = user.id; triggerAudioNav("Ride accepted. Navigating to pickup."); }
-    else if (nextStatus === 'arrived') { update.arrived_at = new Date().toISOString(); triggerAudioNav("Arrived at pickup. Rider notified."); }
-    else if (nextStatus === 'in_progress') { update.picked_up_at = new Date().toISOString(); triggerAudioNav("Rider picked up. Navigating to destination."); }
-    else if (nextStatus === 'completed') { update.completed_at = new Date().toISOString(); triggerAudioNav("Ride complete."); setView('driver_dashboard'); setActiveRide(null); fetchWeeklyEarnings(); }
+    if (nextStatus === 'accepted') update.driver_id = user.id;
+    else if (nextStatus === 'arrived') update.arrived_at = new Date().toISOString();
+    else if (nextStatus === 'in_progress') update.picked_up_at = new Date().toISOString();
+    else if (nextStatus === 'completed') { update.completed_at = new Date().toISOString(); setActiveRide(null); }
     await supabase.from('rides').update(update).eq('id', rideId);
-    fetchPendingRequests();
+    if (nextStatus === 'accepted') { const req = pendingRequests.find(r => r.id === rideId); setActiveRide({ ...req, status: 'accepted' }); }
+    fetchPendingRequests(); fetchDriverStats();
   };
 
-  const s = { display: 'flex', flexDirection: 'column', gap: '12px' };
+  const fare = calcFare();
 
-  // ─── DRIVER DASHBOARD ───────────────────────────────────────────────────────
-  const DriverDashboard = () => (
-    <div style={s}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-        <div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: '22px', fontWeight: '800' }}>Hope Driver</h2>
-          <p style={{ margin: '2px 0 0', color: '#aaa', fontSize: '13px' }}>Start earning today</p>
-        </div>
-        <button
-          onClick={() => setDriverOnline(!driverOnline)}
-          style={{
-            width: 'auto', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
-            background: driverOnline ? '#1a7a2e' : '#555', border: 'none', color: '#fff', cursor: 'pointer'
-          }}>
-          {driverOnline ? '🟢 ONLINE' : '⚫ OFFLINE'}
-        </button>
+  // ── WEEKLY EARNINGS ──────────────────────────────────────────────────────
+  const todayEarnings = todayRides.filter(r => r.status === 'completed').reduce((s, r) => s + (r.calculated_fare || 0), 0);
+  const grossFares = completedRides.reduce((s, r) => s + (r.calculated_fare || 0), 0);
+  const platformFee = grossFares * 0.10;
+  const youKeep = grossFares - platformFee;
+
+  // ── STYLES ────────────────────────────────────────────────────────────────
+  const col = { display: 'flex', flexDirection: 'column', gap: '12px' };
+  const row = { display: 'flex', flexDirection: 'row' };
+  const card = { background: '#fff', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' };
+  const pinkBtn = { background: 'var(--pink)', color: '#fff', border: 'none', borderRadius: '10px', padding: '14px', fontWeight: '700', fontSize: '15px', width: '100%', cursor: 'pointer' };
+  const grayBtn = { background: '#f0f0f0', color: '#333', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' };
+  const tabBtn = (active) => ({ background: active ? 'var(--pink)' : '#f0f0f0', color: active ? '#fff' : '#666', border: 'none', borderRadius: '20px', padding: '8px 16px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' });
+  const inputStyle = { background: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: '10px', padding: '13px 14px', fontSize: '14px', color: '#333', outline: 'none', width: '100%', boxSizing: 'border-box' };
+  const statCard = (color) => ({ background: color || '#f9f9f9', borderRadius: '12px', padding: '14px', textAlign: 'center', flex: 1 });
+
+  // ── AUTH ─────────────────────────────────────────────────────────────────
+  if (view === 'auth') return (
+    <div style={{ minHeight: '100vh', background: '#121212', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <img src={LOGO} alt="Hope" style={{ width: '120px', borderRadius: '16px', marginBottom: '20px' }} />
+      <h2 style={{ color: '#fff', margin: '0 0 4px', fontSize: '24px' }}>Hope Rideshare</h2>
+      <p style={{ color: '#aaa', fontSize: '13px', marginBottom: '28px' }}>Chattanooga's Trusted Rides for Women</p>
+
+      <div style={{ ...row, gap: '8px', marginBottom: '20px' }}>
+        <button style={tabBtn(authMode === 'login')} onClick={() => setAuthMode('login')}>Log In</button>
+        <button style={tabBtn(authMode === 'register')} onClick={() => setAuthMode('register')}>Create Account</button>
       </div>
 
-      {/* Nearby Requests header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-        <p style={{ margin: 0, fontWeight: '700', fontSize: '16px', color: '#fff' }}>Nearby Requests</p>
-        <p style={{ margin: 0, fontSize: '13px', color: '#aaa' }}>{pendingRequests.length} available</p>
-      </div>
+      <form onSubmit={authMode === 'login' ? handleLogin : handleSignUp} style={{ ...col, width: '100%', maxWidth: '360px' }}>
+        {authMode === 'register' && <>
+          <input style={{ ...inputStyle, background: '#1e1e1e', color: '#fff', border: '1px solid #333' }} placeholder="Full Name" value={fullName} onChange={e => setFullName(e.target.value)} />
+          <input style={{ ...inputStyle, background: '#1e1e1e', color: '#fff', border: '1px solid #333' }} type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} />
+        </>}
+        <input style={{ ...inputStyle, background: '#1e1e1e', color: '#fff', border: '1px solid #333' }} type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} />
+        <input style={{ ...inputStyle, background: '#1e1e1e', color: '#fff', border: '1px solid #333' }} type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} />
+        <button type="submit" disabled={loading} style={pinkBtn}>{loading ? '...' : authMode === 'login' ? 'Log In' : '🌸 Create Account'}</button>
+      </form>
+    </div>
+  );
 
-      {/* Ride request cards */}
-      {pendingRequests.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#666' }}>
-          <p style={{ fontSize: '36px', margin: 0 }}>🌸</p>
-          <p style={{ marginTop: '8px' }}>No pending rides right now</p>
+  // ── RIDER VIEW ────────────────────────────────────────────────────────────
+  if (view === 'rider') {
+    const firstName = profile?.full_name?.split(' ')[0] || 'there';
+    return (
+      <div style={{ minHeight: '100vh', background: '#f7f7f7', fontFamily: 'system-ui, sans-serif' }}>
+        {/* Header */}
+        <div style={{ background: '#111', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src={LOGO} alt="Hope" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+            <span style={{ color: '#fff', fontWeight: '700', fontSize: '16px' }}>"Hope"</span>
+            <span style={{ color: '#aaa', fontSize: '11px', letterSpacing: '1px' }}>RIDESHARE</span>
+          </div>
+          <div style={{ ...row, gap: '8px' }}>
+            <button style={tabBtn(true)} onClick={() => {}}>Rider</button>
+            <button style={tabBtn(false)} onClick={() => setView('driver')}>Driver</button>
+          </div>
         </div>
-      ) : (
-        pendingRequests.map((req, i) => (
-          <div key={req.id} style={{
-            background: '#1e1e1e', borderRadius: '14px', padding: '16px',
-            border: '1px solid #333', boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {/* Avatar */}
-                <div style={{
-                  width: '44px', height: '44px', borderRadius: '50%',
-                  background: 'var(--pink)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '20px', flexShrink: 0
-                }}>👤</div>
+
+        <div style={{ padding: '20px', maxWidth: '480px', margin: '0 auto' }}>
+          {/* Tabs */}
+          <div style={{ ...row, gap: '8px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '20px' }}>
+            {['home','book','schedule','history'].map(t => (
+              <button key={t} style={tabBtn(riderTab === t)} onClick={() => setRiderTab(t)}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Active ride banner */}
+          {activeRide && (
+            <div style={{ ...card, background: '#fff0f6', border: '2px solid var(--pink)', marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 4px', fontWeight: '700', color: 'var(--dark-pink)' }}>🚗 Ride in Progress</p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Status: <strong style={{ color: 'var(--pink)' }}>{activeRide.status.replace('_',' ').toUpperCase()}</strong></p>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>📍 {activeRide.pickup_address} → 🏁 {activeRide.dropoff_address}</p>
+            </div>
+          )}
+
+          {riderTab === 'home' && (
+            <div style={col}>
+              <div>
+                <h2 style={{ margin: '0 0 4px', fontSize: '26px', fontWeight: '800', color: '#111' }}>Hello, {firstName} 👋</h2>
+                <p style={{ margin: 0, color: '#888', fontSize: '14px' }}>Where are you headed today?</p>
+              </div>
+              <div style={card}>
+                <input style={inputStyle} placeholder="📍 Current location / Pickup" value={pickup} onChange={e => setPickup(e.target.value)} />
+                <div style={{ height: '8px' }} />
+                <input style={inputStyle} placeholder="➤ Where to?" value={dropoff} onChange={e => setDropoff(e.target.value)} />
+                <div style={{ height: '12px' }} />
+                <button style={pinkBtn} onClick={() => { if (pickup && dropoff) setRiderTab('book'); else setRiderTab('book'); }}>Request a Ride</button>
+              </div>
+
+              <p style={{ margin: '4px 0 0', fontWeight: '700', fontSize: '12px', color: '#999', letterSpacing: '1px' }}>QUICK SHORTCUTS</p>
+              <button style={{ ...grayBtn, textAlign: 'left', padding: '14px' }}>＋ Add Shortcut</button>
+
+              <div style={{ ...card, display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '20px' }}>📅</span>
                 <div>
-                  <p style={{ margin: 0, fontWeight: '700', fontSize: '15px', color: '#fff' }}>
-                    {req.rider_name ? req.rider_name.split(' ')[0] + ' ' + (req.rider_name.split(' ')[1]?.[0] || '') + '.' : 'Rider'}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#f5c518' }}>⭐ {(4.5 + Math.random() * 0.5).toFixed(1)}</p>
+                  <p style={{ margin: 0, fontWeight: '700', color: '#111' }}>Schedule a Ride</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Book for a future date & time</p>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, color: 'var(--pink)', fontWeight: '800', fontSize: '17px' }}>${req.calculated_fare}</p>
-                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#aaa' }}>~{2 + i} min away</p>
+
+              <div style={{ ...row, gap: '10px' }}>
+                <div style={statCard('#fff0f6')}>
+                  <p style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--dark-pink)' }}>{rideHistory.length}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>Rides</p>
+                </div>
+                <div style={statCard()}>
+                  <p style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#f5c518' }}>⭐</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>Rating</p>
+                </div>
+                <div style={statCard()}>
+                  <p style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--pink)' }}>1</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>Months</p>
+                </div>
               </div>
+
+              {/* SOS Button */}
+              <button style={{ background: '#d32f2f', color: '#fff', border: 'none', borderRadius: '12px', padding: '16px', fontWeight: '800', fontSize: '16px', cursor: 'pointer', letterSpacing: '1px' }}>
+                ⚠️ SOS — Emergency Alert
+              </button>
             </div>
-
-            <div style={{ marginTop: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span style={{ fontSize: '14px' }}>📍</span>
-              <p style={{ margin: 0, fontSize: '13px', color: '#ccc', flex: 1 }}>{req.pickup_address}</p>
-              <p style={{ margin: 0, fontSize: '12px', color: '#888', whiteSpace: 'nowrap' }}>{(0.5 + Math.random() * 2).toFixed(1)} mi</p>
-            </div>
-            {req.dropoff_address && (
-              <div style={{ marginTop: '4px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px' }}>🏁</span>
-                <p style={{ margin: 0, fontSize: '13px', color: '#999', flex: 1 }}>{req.dropoff_address}</p>
-              </div>
-            )}
-            {(req.pet_count > 0 || req.child_count > 0) && (
-              <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                {req.pet_count > 0 && <span style={{ fontSize: '12px', background: '#2a2a2a', padding: '3px 8px', borderRadius: '12px' }}>🐾 {req.pet_count} pet</span>}
-                {req.child_count > 0 && <span style={{ fontSize: '12px', background: '#2a2a2a', padding: '3px 8px', borderRadius: '12px' }}>👶 {req.child_count} child</span>}
-              </div>
-            )}
-
-            <button
-              onClick={() => { updateRideStatus(req.id, 'accepted'); setActiveRide(req); setView('active_ride'); }}
-              style={{
-                width: '100%', marginTop: '14px', padding: '13px', borderRadius: '10px',
-                background: 'var(--pink)', color: '#fff', fontWeight: '800', fontSize: '15px',
-                border: 'none', cursor: 'pointer'
-              }}>
-              Accept Request
-            </button>
-          </div>
-        ))
-      )}
-
-      {/* Weekly Earnings Card */}
-      <div style={{
-        background: 'linear-gradient(135deg, var(--dark-pink), var(--pink))',
-        borderRadius: '14px', padding: '18px', marginTop: '8px', position: 'relative', overflow: 'hidden'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>This Week</p>
-            <p style={{ margin: '4px 0', fontSize: '32px', fontWeight: '900', color: '#fff' }}>${weeklyEarnings.total}</p>
-            <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.85)' }}>
-              {weeklyEarnings.trips} trips · {weeklyEarnings.hours} hours online
-            </p>
-          </div>
-          <span style={{ fontSize: '24px', opacity: 0.8 }}>📈</span>
-        </div>
-      </div>
-
-      <button onClick={() => supabase.auth.signOut()} style={{ background: '#2a2a2a', color: '#888', marginTop: '4px' }}>
-        Log Out
-      </button>
-    </div>
-  );
-
-  return (
-    <div className="app-container" style={{ padding: '20px' }}>
-      <header style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <img src="https://media.base44.com/images/public/6a276d56de2d596e49ec189a/8cf8dedc3_IMG_1097.jpeg"
-          alt="Hope Rideshare" style={{ width: '160px', borderRadius: '12px', marginBottom: '8px' }} />
-        <p style={{ color: 'var(--light-gray)', fontSize: '13px', margin: 0 }}>Chattanooga's Trusted Rides for Women</p>
-      </header>
-
-      {view === 'auth' && (
-        <form onSubmit={handleSignUp} style={s}>
-          <h3 style={{ textAlign: 'center', color: 'var(--pink)' }}>Sign In or Register</h3>
-          <input type="text" placeholder="Full Name" value={fullName} onChange={e => setFullName(e.target.value)} />
-          <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} />
-          <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} />
-          <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} />
-          <button type="submit" disabled={loading}>🌸 Create Account</button>
-          <button type="button" style={{ background: 'var(--gray)' }} onClick={async () => {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) alert(error.message);
-          }}>Log In</button>
-        </form>
-      )}
-
-      {view === 'client_dashboard' && (
-        <div style={s}>
-          <h3 style={{ color: 'var(--pink)' }}>Book a Ride</h3>
-          <input type="text" placeholder="📍 Pickup Address" value={pickup} onChange={e => setPickup(e.target.value)} />
-          {stops.map((stop, i) => (
-            <input key={i} type="text" placeholder={`🛑 Stop ${i+1}`} value={stop} onChange={e => {
-              const arr = [...stops]; arr[i] = e.target.value; setStops(arr);
-            }} />
-          ))}
-          {stops.length < 2 && (
-            <button style={{ background: 'none', border: '1px dashed var(--pink)', fontSize: '13px', padding: '8px' }}
-              onClick={() => setStops([...stops, ''])}>+ Add Stop (+$0.50)</button>
           )}
-          <input type="text" placeholder="🏁 Dropoff Address" value={dropoff} onChange={e => setDropoff(e.target.value)} />
 
-          <div>
-            <p style={{ fontSize: '12px', color: 'var(--light-gray)', marginBottom: '6px' }}>Quick Picks:</p>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {CHATTANOOGA_QUICK_PICKS.map((p, i) => (
-                <button key={i} style={{ padding: '6px 10px', fontSize: '11px', background: 'var(--gray)', width: 'auto' }}
-                  onClick={() => !pickup ? setPickup(p.address) : setDropoff(p.address)}>{p.name}</button>
+          {riderTab === 'book' && (
+            <div style={col}>
+              <h3 style={{ margin: 0, color: '#111', fontWeight: '800' }}>Request your ride</h3>
+              <input style={inputStyle} placeholder="📍 Pickup Address" value={pickup} onChange={e => setPickup(e.target.value)} />
+              {stops.map((stop, i) => (
+                <input key={i} style={inputStyle} placeholder={`🛑 Stop ${i+1}`} value={stop} onChange={e => { const a=[...stops]; a[i]=e.target.value; setStops(a); }} />
+              ))}
+              <div style={{ ...row, gap: '8px' }}>
+                {stops.length < 2 && <button style={{ ...grayBtn, flex: 1 }} onClick={() => setStops([...stops,''])}>＋ Add Stop</button>}
+                <label style={{ ...grayBtn, display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+                  <input type="checkbox" checked={hasPet} onChange={e => setHasPet(e.target.checked)} />
+                  🐾 Pet (+$5)
+                </label>
+              </div>
+              <input style={inputStyle} placeholder="📍 Dropoff Address" value={dropoff} onChange={e => setDropoff(e.target.value)} />
+
+              {(pickup || dropoff) && (
+                <div style={card}>
+                  {[
+                    ['Base Fare', `$${fare.base.toFixed(2)}`],
+                    ['Distance ($1.50/mi)', `$${fare.distance}`],
+                    ['Duration ($0.30/min)', `$${fare.duration}`],
+                    ['Wait Time ($0.50/min after 5m)', `$${fare.wait}`],
+                    ['Pet Premium', `$${fare.pet}`],
+                  ].map(([label, val]) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '14px', color: '#555', borderBottom: '1px solid #f0f0f0' }}>
+                      <span>{label}</span><span style={{ fontWeight: '600', color: '#222' }}>{val}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: '800', fontSize: '16px' }}>
+                    <span style={{ color: '#111' }}>Total Estimate</span>
+                    <span style={{ color: 'var(--pink)', fontSize: '20px' }}>${fare.total}</span>
+                  </div>
+                </div>
+              )}
+
+              <button style={pinkBtn} onClick={confirmDispatch} disabled={loading || !pickup || !dropoff}>
+                {loading ? 'Requesting...' : 'Confirm HOPE Dispatch'}
+              </button>
+            </div>
+          )}
+
+          {riderTab === 'schedule' && (
+            <div style={col}>
+              <h3 style={{ margin: 0, color: '#111', fontWeight: '800' }}>Schedule a Ride</h3>
+              <div style={card}>
+                <p style={{ margin: '0 0 12px', color: '#888', fontSize: '13px' }}>Book for a future date & time</p>
+                <input style={inputStyle} placeholder="📍 Pickup Address" />
+                <div style={{ height: '8px' }} />
+                <input style={inputStyle} placeholder="🏁 Dropoff Address" />
+                <div style={{ height: '8px' }} />
+                <input style={inputStyle} type="datetime-local" />
+                <div style={{ height: '12px' }} />
+                <button style={pinkBtn}>Schedule Ride</button>
+              </div>
+            </div>
+          )}
+
+          {riderTab === 'history' && (
+            <div style={col}>
+              <h3 style={{ margin: 0, color: '#111', fontWeight: '800' }}>Ride History</h3>
+              {rideHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+                  <p style={{ fontSize: '32px' }}>🌸</p>
+                  <p>No rides yet</p>
+                </div>
+              ) : rideHistory.map(r => (
+                <div key={r.id} style={card}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <p style={{ margin: 0, fontWeight: '700', color: '#111' }}>{r.pickup_address}</p>
+                    <p style={{ margin: 0, color: 'var(--pink)', fontWeight: '800' }}>${r.calculated_fare}</p>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>→ {r.dropoff_address}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: r.status === 'completed' ? '#2e7d32' : '#888' }}>{r.status.toUpperCase()}</p>
+                </div>
               ))}
             </div>
-          </div>
+          )}
 
-          <div className="warning-banner">
-            ⚠️ CAR SEAT REQUIREMENT: If a child requires a car seat by TN law, the rider must provide it. Driver may refuse service. $15 cancellation + $10 fuel fee applies if absent.
-          </div>
-
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '13px' }}>
-            <label>🐾 Pets (+$5):
-              <input type="number" min="0" style={{ width: '50px', marginLeft: '6px' }} value={pets} onChange={e => setPets(parseInt(e.target.value)||0)} />
-            </label>
-            <label>👶 Kids:
-              <input type="number" min="0" style={{ width: '50px', marginLeft: '6px' }} value={children} onChange={e => setChildren(parseInt(e.target.value)||0)} />
-            </label>
-          </div>
-
-          <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input type="checkbox" checked={isAfterHours} onChange={e => setIsAfterHours(e.target.checked)} />
-            🌙 After-Hours Rate (5pm–8pm)
-          </label>
-
-          <div style={{ background: 'var(--gray)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid var(--pink)' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--light-gray)' }}>Estimated Fare</p>
-            <p style={{ margin: '4px 0 0', fontSize: '28px', fontWeight: '900', color: 'var(--pink)' }}>${estimatedFare}</p>
-          </div>
-
-          <button onClick={processStripeCheckout} style={{ background: '#635BFF' }} disabled={loading || !pickup || !dropoff}>
-            🔒 Pay & Request Ride
-          </button>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: '#333' }}>Log Out</button>
+          <button onClick={() => supabase.auth.signOut()} style={{ ...grayBtn, marginTop: '16px', width: '100%' }}>Log Out</button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {view === 'driver_dashboard' && <DriverDashboard />}
+  // ── DRIVER VIEW ───────────────────────────────────────────────────────────
+  if (view === 'driver') {
+    const pendingCount = pendingRequests.length;
+    const todayCount = todayRides.length;
+    const completedCount = todayRides.filter(r => r.status === 'completed').length;
+    const activeForDriver = pendingRequests.filter(r => r.status !== 'pending');
 
-      {view === 'active_ride' && activeRide && (
-        <div style={s}>
-          <h3 style={{ color: 'var(--pink)' }}>
-            {user?.id === ADMIN_UID ? '🚗 Active Ride' : '🌸 Your Ride'}
-          </h3>
-          <div style={{ background: '#222', borderRadius: '10px', padding: '16px', border: '1px solid var(--pink)', textAlign: 'center' }}>
-            <p style={{ fontSize: '12px', color: 'var(--light-gray)' }}>🗺️ Live Tracking Active</p>
-            <p style={{ color: 'var(--pink)', fontWeight: 'bold', fontSize: '16px', margin: '8px 0' }}>
-              Status: {activeRide.status.replace('_', ' ').toUpperCase()}
-            </p>
+    return (
+      <div style={{ minHeight: '100vh', background: '#f7f7f7', fontFamily: 'system-ui, sans-serif' }}>
+        {/* Header */}
+        <div style={{ background: '#111', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src={LOGO} alt="Hope" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+            <div>
+              <p style={{ color: '#fff', fontWeight: '700', fontSize: '15px', margin: 0 }}>"Hope"</p>
+              <p style={{ color: '#aaa', fontSize: '10px', letterSpacing: '1px', margin: 0 }}>TRUSTED RIDES FOR WOMEN</p>
+            </div>
+          </div>
+          <button style={{ ...grayBtn, padding: '8px 14px', fontSize: '13px' }} onClick={() => setView('rider')}>← Back</button>
+        </div>
+
+        <div style={{ padding: '20px', maxWidth: '480px', margin: '0 auto', ...col }}>
+          {/* Title + Online toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#111' }}>Driver Dashboard</h2>
+              <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>Manage ride requests in real-time</p>
+            </div>
+            <button onClick={() => setDriverOnline(!driverOnline)} style={{ background: driverOnline ? '#1a7a2e' : '#555', color: '#fff', border: 'none', borderRadius: '20px', padding: '8px 14px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+              {driverOnline ? '🟢 ONLINE' : '⚫ OFFLINE'}
+            </button>
           </div>
 
-          <div style={{ background: 'var(--gray)', borderRadius: '10px', padding: '16px' }}>
-            <p><strong>{activeRide.rider_name}</strong> · {activeRide.rider_phone}</p>
-            <p style={{ fontSize: '13px', color: 'var(--light-gray)', marginTop: '8px' }}>📍 {activeRide.pickup_address}</p>
-            <p style={{ fontSize: '13px', color: 'var(--light-gray)' }}>🏁 {activeRide.dropoff_address}</p>
-            <p style={{ color: 'var(--pink)', fontWeight: 'bold', marginTop: '8px' }}>Fare: ${activeRide.calculated_fare}</p>
+          {/* Stat tiles */}
+          <div style={{ ...row, gap: '10px' }}>
+            {[
+              ['⏳', pendingCount, 'PENDING'],
+              ['🚗', todayCount, "TODAY'S RIDES"],
+              ['✅', completedCount, 'COMPLETED'],
+              ['$', `$${todayEarnings.toFixed(0)}`, 'EARNINGS'],
+            ].map(([icon, val, label]) => (
+              <div key={label} style={{ ...statCard(), border: '1px solid #e8e8e8', flex: 1, padding: '12px 8px' }}>
+                <p style={{ margin: '0 0 4px', fontSize: '18px' }}>{icon}</p>
+                <p style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#111' }}>{val}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>{label}</p>
+              </div>
+            ))}
           </div>
 
-          {user?.id === ADMIN_UID && (
-            <div style={s}>
-              {activeRide.status === 'accepted' && (
-                <button onClick={() => updateRideStatus(activeRide.id, 'arrived')}>📍 Mark Arrived at Pickup</button>
-              )}
-              {activeRide.status === 'arrived' && (
-                <>
-                  <div style={{ textAlign: 'center', color: '#ff6666', fontWeight: 'bold' }}>
-                    ⏱️ Wait Time: {Math.floor(waitTime/60)}m {waitTime%60}s
-                    {waitTime > 300 && <span style={{ color: '#ffaa00' }}> (+$0.15/min)</span>}
+          {/* Live Map */}
+          <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--pink)' }}>📍</span>
+              <p style={{ margin: 0, fontWeight: '700', fontSize: '13px', color: '#333', letterSpacing: '1px' }}>LIVE MAP — CHATTANOOGA AREA</p>
+            </div>
+            <iframe
+              src="https://www.openstreetmap.org/export/embed.html?bbox=-85.3800,34.9800,-85.2200,35.1200&layer=mapnik"
+              style={{ width: '100%', height: '220px', border: 'none', display: 'block' }}
+              title="Chattanooga Map"
+            />
+          </div>
+
+          {/* Earnings Summary */}
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <p style={{ margin: 0, fontWeight: '700', color: '#111', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: 'var(--pink)' }}>📈</span> Earnings Summary
+              </p>
+              <select style={{ border: '1px solid #e0e0e0', borderRadius: '8px', padding: '4px 8px', fontSize: '13px', background: '#fff' }}>
+                <option>Today</option><option>This Week</option><option>This Month</option>
+              </select>
+            </div>
+            <div style={{ background: '#fff0f6', borderRadius: '10px', padding: '16px', textAlign: 'center', marginBottom: '12px' }}>
+              <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#999', letterSpacing: '1px' }}>NET TAKE-HOME · TODAY</p>
+              <p style={{ margin: 0, fontSize: '36px', fontWeight: '900', color: 'var(--dark-pink)' }}>${youKeep.toFixed(2)}</p>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#888' }}>{completedRides.length} rides completed</p>
+            </div>
+            {[
+              ['Gross Fares', `$${grossFares.toFixed(2)}`, '#111'],
+              ['Tips Received', '+$0.00', '#2e7d32'],
+              ['Platform Fee (10%)', `-$${platformFee.toFixed(2)}`, 'var(--pink)'],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f5', fontSize: '14px' }}>
+                <span style={{ color: '#555' }}>{label}</span><span style={{ fontWeight: '700', color }}>{val}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', fontSize: '15px', fontWeight: '800' }}>
+              <span style={{ color: '#111' }}>You Keep</span>
+              <span style={{ color: 'var(--pink)' }}>${youKeep.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Ride Tabs */}
+          <div style={{ ...row, gap: '8px' }}>
+            {[['pending', `Pending (${pendingCount})`], ['active', `Active (${activeRide ? 1 : 0})`], ['history', `History (${completedRides.length})`]].map(([t, label]) => (
+              <button key={t} style={tabBtn(driverTab === t)} onClick={() => setDriverTab(t)}>{label}</button>
+            ))}
+          </div>
+
+          {/* Pending rides */}
+          {driverTab === 'pending' && (
+            pendingRequests.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+                <p style={{ fontSize: '32px', margin: 0 }}>🔔</p>
+                <p style={{ fontWeight: '600', margin: '8px 0 4px', color: '#555' }}>No pending requests</p>
+                <p style={{ fontSize: '13px', margin: 0 }}>New ride requests will appear here</p>
+              </div>
+            ) : pendingRequests.map(req => (
+              <div key={req.id} style={card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--pink)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '800', fontSize: '16px', flexShrink: 0 }}>
+                      {(req.rider_name || 'R').charAt(0)}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: '700', color: '#111' }}>
+                        {req.rider_name ? req.rider_name.split(' ')[0] + ' ' + (req.rider_name.split(' ')[1]?.[0]||'') + '.' : 'Rider'}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#f5c518' }}>⭐ {(4.5 + Math.random()*0.5).toFixed(1)}</p>
+                    </div>
                   </div>
-                  <button onClick={() => updateRideStatus(activeRide.id, 'in_progress')} style={{ background: '#1565c0' }}>
-                    🚗 Rider Picked Up — Start Ride
-                  </button>
-                </>
-              )}
-              {activeRide.status === 'in_progress' && (
-                <button onClick={() => updateRideStatus(activeRide.id, 'completed')} style={{ background: '#2e7d32' }}>
-                  ✅ Complete Ride
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: 0, color: 'var(--pink)', fontWeight: '800', fontSize: '18px' }}>${req.calculated_fare}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>~2 min away</p>
+                  </div>
+                </div>
+                <div style={{ marginTop: '12px', ...col, gap: '4px' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#555' }}>📍 {req.pickup_address}</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>🏁 {req.dropoff_address}</p>
+                </div>
+                <button style={{ ...pinkBtn, marginTop: '12px' }} onClick={() => { updateRideStatus(req.id, 'accepted'); }}>
+                  Accept Request
                 </button>
-              )}
-              <button onClick={() => setView('driver_dashboard')} style={{ background: '#333' }}>← Back to Dashboard</button>
-            </div>
+              </div>
+            ))
           )}
 
-          {user?.id !== ADMIN_UID && (
-            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--light-gray)' }}>
-              <p>Your driver is on the way! 🚗💕</p>
-              <p style={{ fontSize: '13px' }}>Status: <strong style={{ color: 'var(--pink)' }}>{activeRide.status.replace('_',' ').toUpperCase()}</strong></p>
-            </div>
+          {driverTab === 'active' && (
+            activeRide && ['accepted','arrived','in_progress'].includes(activeRide.status) ? (
+              <div style={card}>
+                <p style={{ margin: '0 0 12px', fontWeight: '800', fontSize: '16px', color: '#111' }}>Active Ride</p>
+                <p style={{ margin: '0 0 4px', fontSize: '13px', color: '#555' }}>👤 {activeRide.rider_name} · {activeRide.rider_phone}</p>
+                <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>📍 {activeRide.pickup_address}</p>
+                <p style={{ margin: '4px 0 12px', fontSize: '13px', color: '#555' }}>🏁 {activeRide.dropoff_address}</p>
+                <p style={{ margin: '0 0 12px', color: 'var(--pink)', fontWeight: '700' }}>Status: {activeRide.status.replace('_',' ').toUpperCase()}</p>
+                {activeRide.status === 'accepted' && <button style={pinkBtn} onClick={() => updateRideStatus(activeRide.id, 'arrived')}>📍 Arrived at Pickup</button>}
+                {activeRide.status === 'arrived' && (
+                  <div style={col}>
+                    <p style={{ color: '#d32f2f', fontWeight: '700', textAlign: 'center' }}>⏱️ {Math.floor(waitTime/60)}m {waitTime%60}s</p>
+                    <button style={{ ...pinkBtn, background: '#1565c0' }} onClick={() => updateRideStatus(activeRide.id, 'in_progress')}>🚗 Start Ride</button>
+                  </div>
+                )}
+                {activeRide.status === 'in_progress' && <button style={{ ...pinkBtn, background: '#2e7d32' }} onClick={() => updateRideStatus(activeRide.id, 'completed')}>✅ Complete Ride</button>}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+                <p style={{ fontSize: '32px', margin: 0 }}>🚗</p>
+                <p>No active ride</p>
+              </div>
+            )
           )}
+
+          {driverTab === 'history' && (
+            completedRides.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+                <p style={{ fontSize: '32px', margin: 0 }}>📋</p>
+                <p>No completed rides yet</p>
+              </div>
+            ) : completedRides.map(r => (
+              <div key={r.id} style={card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <p style={{ margin: 0, fontWeight: '700', color: '#111' }}>{r.rider_name}</p>
+                  <p style={{ margin: 0, color: 'var(--pink)', fontWeight: '800' }}>${r.calculated_fare}</p>
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>📍 {r.pickup_address}</p>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>🏁 {r.dropoff_address}</p>
+              </div>
+            ))
+          )}
+
+          <button onClick={() => supabase.auth.signOut()} style={{ ...grayBtn, width: '100%', marginTop: '8px' }}>Log Out</button>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }
