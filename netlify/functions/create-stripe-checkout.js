@@ -1,8 +1,6 @@
-import Stripe from 'stripe';
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-export const handler = async (event) => {
+exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
   try {
     const { amountInCents, riderEmail, pickupAddress, dropoffAddress } = JSON.parse(event.body);
@@ -12,8 +10,8 @@ export const handler = async (event) => {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: '❤️ Hope Rideshare Transit Fare',
-            description: `📍 From: ${pickupAddress} → To: ${dropoffAddress}`,
+            name: 'Hope Rideshare Transit Fare',
+            description: 'From: ' + pickupAddress + ' To: ' + dropoffAddress,
           },
           unit_amount: amountInCents,
         },
@@ -21,12 +19,12 @@ export const handler = async (event) => {
       }],
       mode: 'payment',
       customer_email: riderEmail,
-      success_url: `${process.env.URL}?payment_success=true`,
-      cancel_url: `${process.env.URL}?payment_cancelled=true`,
+      success_url: (process.env.URL || 'https://hope-rideshare.netlify.app') + '?payment_success=true',
+      cancel_url: (process.env.URL || 'https://hope-rideshare.netlify.app') + '?payment_cancelled=true',
     });
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ id: session.id, url: session.url }),
     };
   } catch (error) {
