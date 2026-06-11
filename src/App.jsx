@@ -10,12 +10,13 @@ const pink  = '#A2135D';
 const pink2 = '#E0358D';
 const dark  = '#121212';
 const cardBg = '#1E1E1E';
+const cardLight = '#2a2a2a';
 
 const btn = (bg=`linear-gradient(135deg,${pink},${pink2})`,color='#fff') => ({
   background:bg,color,border:'none',borderRadius:'14px',padding:'15px',
   fontWeight:'800',fontSize:'16px',cursor:'pointer',width:'100%',letterSpacing:'0.3px'
 });
-const ghostBtn = {background:'#2a2a2a',color:'#ccc',border:'1px solid #333',
+const ghostBtn = {background:cardLight,color:'#ccc',border:'1px solid #333',
   borderRadius:'12px',padding:'12px 16px',fontWeight:'600',fontSize:'14px',cursor:'pointer'};
 const pill=(active)=>({
   background:active?`linear-gradient(135deg,${pink},${pink2})`:'#2a2a2a',
@@ -53,19 +54,15 @@ async function getRoute(pc,dc){
   return null;
 }
 
-/* ── Leaflet Map ── */
 function LiveMap({pickupCoord,dropoffCoord,routeCoords,userCoord,height='100%'}){
   const mapRef=useRef(null);
   const leafRef=useRef(null);
   const layersRef=useRef({});
-
   useEffect(()=>{
     if(leafRef.current) return;
     if(!document.getElementById('leaflet-css')){
-      const l=document.createElement('link');
-      l.id='leaflet-css';l.rel='stylesheet';
-      l.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(l);
+      const l=document.createElement('link');l.id='leaflet-css';l.rel='stylesheet';
+      l.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(l);
     }
     const init=()=>{
       if(!mapRef.current||!window.L) return;
@@ -75,18 +72,13 @@ function LiveMap({pickupCoord,dropoffCoord,routeCoords,userCoord,height='100%'})
       leafRef.current=map;
     };
     if(window.L){init();return;}
-    const s=document.createElement('script');
-    s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    s.onload=init;
-    document.head.appendChild(s);
+    const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=init;document.head.appendChild(s);
   },[]);
-
   useEffect(()=>{
     const L=window.L,map=leafRef.current;
     if(!L||!map) return;
-    Object.values(layersRef.current).forEach(l=>map.removeLayer(l));
-    layersRef.current={};
-    const icon=(color)=>L.divIcon({className:'',html:`<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
+    Object.values(layersRef.current).forEach(l=>map.removeLayer(l));layersRef.current={};
+    const icon=(c)=>L.divIcon({className:'',html:`<div style="background:${c};width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
     if(userCoord) layersRef.current.user=L.marker([userCoord.lat,userCoord.lng],{icon:icon('#4caf50')}).addTo(map);
     if(pickupCoord) layersRef.current.pickup=L.marker([pickupCoord.lat,pickupCoord.lng],{icon:icon('#4caf50')}).bindPopup('Pickup').addTo(map);
     if(dropoffCoord) layersRef.current.dropoff=L.marker([dropoffCoord.lat,dropoffCoord.lng],{icon:icon(pink)}).bindPopup('Dropoff').addTo(map);
@@ -96,15 +88,11 @@ function LiveMap({pickupCoord,dropoffCoord,routeCoords,userCoord,height='100%'})
       map.fitBounds(layersRef.current.route.getBounds(),{padding:[40,40]});
     } else if(pickupCoord&&dropoffCoord){
       map.fitBounds([[pickupCoord.lat,pickupCoord.lng],[dropoffCoord.lat,dropoffCoord.lng]],{padding:[40,40]});
-    } else if(userCoord){
-      map.setView([userCoord.lat,userCoord.lng],14);
-    }
+    } else if(userCoord) map.setView([userCoord.lat,userCoord.lng],14);
   },[pickupCoord,dropoffCoord,routeCoords,userCoord]);
-
   return <div ref={mapRef} style={{width:'100%',height,borderRadius:'inherit'}}/>;
 }
 
-/* ══════════════════════════════════════════════════════════════ */
 export default function App(){
   const [session,setSession]=useState(null);
   const [profile,setProfile]=useState(null);
@@ -118,7 +106,7 @@ export default function App(){
   const [phone,setPhone]=useState('');
   const [agreed,setAgreed]=useState(false);
 
-  /* rider */
+  // rider
   const [rTab,setRTab]=useState('home');
   const [pickup,setPickup]=useState('');
   const [dropoff,setDropoff]=useState('');
@@ -131,7 +119,7 @@ export default function App(){
   const [idFile,setIdFile]=useState(null);
   const [idUploading,setIdUploading]=useState(false);
 
-  /* map */
+  // map
   const [userCoord,setUserCoord]=useState(null);
   const [pickupCoord,setPickupCoord]=useState(null);
   const [dropoffCoord,setDropoffCoord]=useState(null);
@@ -139,18 +127,20 @@ export default function App(){
   const [routeInfo,setRouteInfo]=useState(null);
   const [routeLoading,setRouteLoading]=useState(false);
 
-  /* driver */
+  // driver
   const [dTab,setDTab]=useState('requests');
   const [pending,setPending]=useState([]);
-  const [stats,setStats]=useState({pending:0,today:0,completed:0,earnings:0});
+  const [allRides,setAllRides]=useState([]);
+  const [stats,setStats]=useState({pending:0,today:0,completed:0,earnings:0,weekEarnings:0,weekTrips:0,hoursOnline:0});
   const [online,setOnline]=useState(false);
+  const [onlineStart,setOnlineStart]=useState(null);
   const [unverifiedRiders,setUnverified]=useState([]);
   const [notifPerm,setNotifPerm]=useState('default');
+  const [sidebarOpen,setSidebarOpen]=useState(false);
 
   const timer=useRef(null);
   const prevPendingCount=useRef(0);
 
-  /* ── GPS ── */
   useEffect(()=>{
     navigator.geolocation?.getCurrentPosition(
       p=>setUserCoord({lat:p.coords.latitude,lng:p.coords.longitude}),
@@ -158,52 +148,34 @@ export default function App(){
     )||setUserCoord({lat:CHATT_LAT,lng:CHATT_LNG});
   },[]);
 
-  /* ── Push notification setup ── */
   useEffect(()=>{
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.register('/sw.js').catch(()=>{});
-    }
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
     if('Notification' in window) setNotifPerm(Notification.permission);
   },[]);
 
   async function requestNotifPermission(){
     if(!('Notification' in window)) return;
-    const perm=await Notification.requestPermission();
-    setNotifPerm(perm);
-    return perm==='granted';
+    const p=await Notification.requestPermission();setNotifPerm(p);return p==='granted';
   }
-
   function sendLocalNotif(title,body){
-    if(Notification.permission==='granted'){
-      new Notification(title,{body,icon:LOGO,badge:LOGO,vibrate:[200,100,200]});
-    }
+    if(Notification.permission==='granted') new Notification(title,{body,icon:LOGO});
   }
 
-  /* ── Route calc ── */
   useEffect(()=>{
     if(!pickup||!dropoff){setPickupCoord(null);setDropoffCoord(null);setRouteCoords(null);setRouteInfo(null);return;}
     const t=setTimeout(async()=>{
       setRouteLoading(true);
       const [pc,dc]=await Promise.all([geocodeAddress(pickup),geocodeAddress(dropoff)]);
-      if(pc) setPickupCoord(pc);
-      if(dc) setDropoffCoord(dc);
-      if(pc&&dc){
-        const route=await getRoute(pc,dc);
-        if(route){setRouteCoords(route.geometry);setRouteInfo({distMi:route.distMi,durMin:route.durMin});}
-      }
+      if(pc) setPickupCoord(pc);if(dc) setDropoffCoord(dc);
+      if(pc&&dc){const route=await getRoute(pc,dc);if(route){setRouteCoords(route.geometry);setRouteInfo({distMi:route.distMi,durMin:route.durMin});}}
       setRouteLoading(false);
     },800);
     return()=>clearTimeout(t);
   },[pickup,dropoff]);
 
-  /* ── Boot ── */
   useEffect(()=>{
-    supabase.auth.getSession().then(({data})=>{
-      if(data.session) initSession(data.session); else setView('splash');
-    });
-    const {data:L}=supabase.auth.onAuthStateChange((_,s)=>{
-      if(s) initSession(s); else {setSession(null);setView('splash');}
-    });
+    supabase.auth.getSession().then(({data})=>{if(data.session) initSession(data.session);else setView('splash');});
+    const {data:L}=supabase.auth.onAuthStateChange((_,s)=>{if(s) initSession(s);else{setSession(null);setView('splash');}});
     return()=>L.subscription.unsubscribe();
   },[]);
 
@@ -212,8 +184,7 @@ export default function App(){
     let{data:p}=await supabase.from('profiles').select('*').eq('id',s.user.id).single();
     if(!p){
       await supabase.from('profiles').insert({id:s.user.id,full_name:s.user.user_metadata?.full_name||'',phone:s.user.user_metadata?.phone||'',role:s.user.id===ADMIN_UID?'driver':'rider',agreed_to_conduct:false,is_verified:false});
-      const r=await supabase.from('profiles').select('*').eq('id',s.user.id).single();
-      p=r.data;
+      const r=await supabase.from('profiles').select('*').eq('id',s.user.id).single();p=r.data;
     }
     setProfile(p);
     if(s.user.id===ADMIN_UID){setView('driver');startPoll();}
@@ -221,105 +192,90 @@ export default function App(){
     else setView('rider');
   }
 
-  function startPoll(){
-    fetchPending();fetchStats();fetchUnverified();
-    timer.current=setInterval(()=>{fetchPending();fetchStats();fetchUnverified();},8000);
-  }
+  function startPoll(){fetchPending();fetchStats();fetchUnverified();fetchAllRides();timer.current=setInterval(()=>{fetchPending();fetchStats();fetchUnverified();},8000);}
   useEffect(()=>()=>clearInterval(timer.current),[]);
 
   async function fetchPending(){
     const{data}=await supabase.from('rides').select('*').in('status',['pending','accepted']).order('created_at',{ascending:false});
-    const newData=data||[];
-    // fire notification if new ride came in
-    if(newData.filter(r=>r.status==='pending').length > prevPendingCount.current){
-      sendLocalNotif('New Ride Request!','A rider is waiting — open the app to accept.');
-    }
-    prevPendingCount.current=newData.filter(r=>r.status==='pending').length;
-    setPending(newData);
+    const nd=data||[];
+    if(nd.filter(r=>r.status==='pending').length>prevPendingCount.current) sendLocalNotif('New Ride Request!','A rider is waiting — open the app to accept.');
+    prevPendingCount.current=nd.filter(r=>r.status==='pending').length;
+    setPending(nd);
+  }
+  async function fetchAllRides(){
+    const{data}=await supabase.from('rides').select('*').order('created_at',{ascending:false}).limit(50);
+    setAllRides(data||[]);
   }
   async function fetchStats(){
     const t=new Date();t.setHours(0,0,0,0);
-    const{data}=await supabase.from('rides').select('*').gte('created_at',t.toISOString());
-    if(!data) return;
-    setStats({pending:data.filter(r=>r.status==='pending').length,today:data.filter(r=>r.status!=='cancelled').length,completed:data.filter(r=>r.status==='completed').length,earnings:data.filter(r=>r.status==='completed').reduce((s,r)=>s+(r.fare_total||0),0)});
+    const w=new Date();w.setDate(w.getDate()-7);
+    const{data:today}=await supabase.from('rides').select('*').gte('created_at',t.toISOString());
+    const{data:week}=await supabase.from('rides').select('*').gte('created_at',w.toISOString()).eq('status','completed');
+    const td=today||[];const wk=week||[];
+    const hoursOnline=onlineStart?((Date.now()-onlineStart)/3600000).toFixed(1):0;
+    setStats({
+      pending:td.filter(r=>r.status==='pending').length,
+      today:td.filter(r=>r.status!=='cancelled').length,
+      completed:td.filter(r=>r.status==='completed').length,
+      earnings:td.filter(r=>r.status==='completed').reduce((s,r)=>s+(r.fare_total||0),0),
+      weekEarnings:wk.reduce((s,r)=>s+(r.fare_total||0),0),
+      weekTrips:wk.length,
+      hoursOnline,
+    });
   }
   async function fetchUnverified(){
     const{data}=await supabase.from('profiles').select('*').eq('role','rider').eq('is_verified',false).not('id_photo_url','is',null);
     setUnverified(data||[]);
   }
-  async function fetchHistory(){
-    if(!session) return;
-    const{data}=await supabase.from('rides').select('*').eq('rider_id',session.user.id).order('created_at',{ascending:false});
-    setHistory(data||[]);
-  }
-  async function fetchActive(){
-    if(!session) return;
-    const{data}=await supabase.from('rides').select('*').eq('rider_id',session.user.id).in('status',['pending','accepted','en_route']).maybeSingle();
-    setActiveRide(data);
-  }
+  async function fetchHistory(){if(!session) return;const{data}=await supabase.from('rides').select('*').eq('rider_id',session.user.id).order('created_at',{ascending:false});setHistory(data||[]);}
+  async function fetchActive(){if(!session) return;const{data}=await supabase.from('rides').select('*').eq('rider_id',session.user.id).in('status',['pending','accepted','en_route']).maybeSingle();setActiveRide(data);}
   useEffect(()=>{if(view==='rider'){fetchHistory();fetchActive();};},[view]);
 
-  /* ── Auth ── */
   async function handleSignUp(e){
-    e.preventDefault();
-    if(!agreed){setMsg('Please agree to the terms.');return;}
+    e.preventDefault();if(!agreed){setMsg('Please agree to the terms.');return;}
     setLoading(true);setMsg('');
     const{error}=await supabase.auth.signUp({email,password:pass,options:{data:{full_name:name,phone},emailRedirectTo:'https://hope-rideshare.netlify.app'}});
-    setLoading(false);
-    if(error) setMsg(error.message);
-    else setMsg('Check your email to confirm your account!');
+    setLoading(false);if(error) setMsg(error.message);else setMsg('Check your email to confirm your account!');
   }
   async function handleLogin(e){
     e.preventDefault();setLoading(true);setMsg('');
     const{error}=await supabase.auth.signInWithPassword({email,password:pass});
     setLoading(false);if(error) setMsg(error.message);
   }
-  async function signOut(){clearInterval(timer.current);await supabase.auth.signOut();setView('splash');setProfile(null);setSession(null);}
+  async function signOut(){clearInterval(timer.current);await supabase.auth.signOut();setView('splash');setProfile(null);setSession(null);setOnline(false);}
   async function agreeConduct(){await supabase.from('profiles').update({agreed_to_conduct:true}).eq('id',session.user.id);setView('rider');}
 
-  /* ── ID Upload ── */
   async function uploadIdPhoto(){
-    if(!idFile||!session) return;
-    setIdUploading(true);
-    const ext=idFile.name.split('.').pop();
-    const path=`id-photos/${session.user.id}.${ext}`;
+    if(!idFile||!session) return;setIdUploading(true);
+    const ext=idFile.name.split('.').pop();const path=`id-photos/${session.user.id}.${ext}`;
     const{data,error}=await supabase.storage.from('id-photos').upload(path,idFile,{upsert:true});
     if(!error){
-      const{data:urlData}=supabase.storage.from('id-photos').getPublicUrl(path);
-      await supabase.from('profiles').update({id_photo_url:urlData.publicUrl}).eq('id',session.user.id);
-      setProfile(p=>({...p,id_photo_url:urlData.publicUrl}));
-      setMsg('ID submitted! The driver will verify your account shortly.');
-    } else {
-      // fallback: store as base64 note in profile
-      setMsg('ID photo noted — admin will contact you to verify.');
-    }
-    setIdUploading(false);
-    setIdFile(null);
+      const{data:u}=supabase.storage.from('id-photos').getPublicUrl(path);
+      await supabase.from('profiles').update({id_photo_url:u.publicUrl}).eq('id',session.user.id);
+      setProfile(p=>({...p,id_photo_url:u.publicUrl}));setMsg('ID submitted! Awaiting approval.');
+    } else setMsg('Upload failed. Please try again.');
+    setIdUploading(false);setIdFile(null);
   }
 
-  /* ── Verify / Reject Rider ── */
   async function verifyRider(riderId,approve){
     await supabase.from('profiles').update({is_verified:approve}).eq('id',riderId);
-    fetchUnverified();
-    sendLocalNotif(approve?'Rider Approved':'Rider Rejected', approve?'Rider can now book rides.':'Rider has been rejected.');
+    fetchUnverified();sendLocalNotif(approve?'Rider Approved':'Rider Rejected',approve?'Rider can now book rides.':'Rider has been rejected.');
   }
 
-  /* ── Booking ── */
   const fare=calcFare(routeInfo?.distMi||2.8,routeInfo?.durMin||8,hasPet,stops.filter(Boolean).length);
 
   async function requestRide(){
     if(!pickup||!dropoff){setMsg('Enter pickup and dropoff.');return;}
-    if(!profile?.is_verified&&session?.user?.id!==ADMIN_UID){setMsg('Your account is pending verification. Please upload your ID below.');setRTab('profile');return;}
+    if(!profile?.is_verified&&session?.user?.id!==ADMIN_UID){setMsg('Upload your ID first.');setRTab('profile');return;}
     setLoading(true);
     try{
       const res=await fetch('/.netlify/functions/create-stripe-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountInCents:Math.round(parseFloat(fare.total)*100),riderEmail:session.user.email,pickupAddress:pickup,dropoffAddress:dropoff})});
-      const d=await res.json();
-      if(d?.url){window.location.href=d.url;return;}
+      const d=await res.json();if(d?.url){window.location.href=d.url;return;}
     }catch(e){}
     await supabase.from('rides').insert({rider_id:session.user.id,rider_name:profile?.full_name||'Rider',rider_phone:profile?.phone||'',pickup_address:pickup,dropoff_address:dropoff,stops:stops.filter(Boolean),has_pet:hasPet,fare_total:parseFloat(fare.total),status:'pending'});
     setMsg('Ride requested! Driver will confirm shortly.');setLoading(false);setSheet(false);fetchActive();
   }
-  async function updateStatus(id,status){await supabase.from('rides').update({status}).eq('id',id);fetchPending();fetchStats();}
+  async function updateStatus(id,status){await supabase.from('rides').update({status}).eq('id',id);fetchPending();fetchStats();fetchAllRides();}
 
   function triggerSOS(){
     navigator.geolocation?.getCurrentPosition(p=>{
@@ -328,7 +284,12 @@ export default function App(){
     },()=>window.open('tel:911'))||window.open('tel:911');
   }
 
-  /* ═══════════ SPLASH ═══════════ */
+  function toggleOnline(){
+    const newState=!online;setOnline(newState);
+    if(newState) setOnlineStart(Date.now());else setOnlineStart(null);
+  }
+
+  /* ── SPLASH ── */
   if(view==='splash') return(
     <div style={{minHeight:'100vh',background:dark,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',backgroundImage:`linear-gradient(rgba(18,18,18,0.7),rgba(18,18,18,0.95)),url(${LOGO})`,backgroundSize:'cover',backgroundPosition:'center',padding:'32px 24px',fontFamily:'system-ui,sans-serif'}}>
       <img src={LOGO} alt="Hope" style={{width:'180px',borderRadius:'24px',marginBottom:'24px',boxShadow:`0 12px 40px rgba(162,19,93,0.5)`}}/>
@@ -341,7 +302,7 @@ export default function App(){
     </div>
   );
 
-  /* ═══════════ AUTH ═══════════ */
+  /* ── AUTH ── */
   if(view==='auth') return(
     <div style={{minHeight:'100vh',backgroundImage:`linear-gradient(rgba(18,18,18,0.88),rgba(18,18,18,0.97)),url(${LOGO})`,backgroundSize:'cover',backgroundPosition:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px',fontFamily:'system-ui,sans-serif'}}>
       <img src={LOGO} alt="Hope" style={{width:'100px',borderRadius:'16px',marginBottom:'20px'}}/>
@@ -352,51 +313,33 @@ export default function App(){
         <button style={pill(authMode==='register')} onClick={()=>setAuthMode('register')}>Create Account</button>
       </div>
       <form onSubmit={authMode==='login'?handleLogin:handleSignUp} style={{display:'flex',flexDirection:'column',gap:'12px',width:'100%',maxWidth:'380px'}}>
-        {authMode==='register'&&<>
-          <input style={inp} placeholder="Full Name" value={name} onChange={e=>setName(e.target.value)} required/>
-          <input style={inp} type="tel" placeholder="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)}/>
-        </>}
+        {authMode==='register'&&<><input style={inp} placeholder="Full Name" value={name} onChange={e=>setName(e.target.value)} required/><input style={inp} type="tel" placeholder="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)}/></>}
         <input style={inp} type="email" placeholder="Email" required value={email} onChange={e=>setEmail(e.target.value)}/>
         <input style={inp} type="password" placeholder="Password" required value={pass} onChange={e=>setPass(e.target.value)}/>
-        {authMode==='register'&&(
-          <label style={{...row,gap:'10px',color:'#ccc',fontSize:'13px',cursor:'pointer'}}>
-            <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{width:'18px',height:'18px',accentColor:pink}}/>
-            I agree to the Code of Conduct & Privacy Policy
-          </label>
-        )}
+        {authMode==='register'&&(<label style={{...row,gap:'10px',color:'#ccc',fontSize:'13px',cursor:'pointer'}}><input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{width:'18px',height:'18px',accentColor:pink}}/>I agree to the Code of Conduct & Privacy Policy</label>)}
         {msg&&<p style={{color:msg.startsWith('Check')?'#4caf50':'#f06292',fontSize:'13px',margin:0,textAlign:'center'}}>{msg}</p>}
-        <button type="submit" disabled={loading||(authMode==='register'&&!agreed)} style={{...btn(),opacity:(authMode==='register'&&!agreed)?0.4:1}}>
-          {loading?'...':(authMode==='login'?'Log In':'Create Account')}
-        </button>
+        <button type="submit" disabled={loading||(authMode==='register'&&!agreed)} style={{...btn(),opacity:(authMode==='register'&&!agreed)?0.4:1}}>{loading?'...':(authMode==='login'?'Log In':'Create Account')}</button>
       </form>
       <button onClick={()=>setView('splash')} style={{marginTop:'20px',background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:'13px'}}>Back</button>
     </div>
   );
 
-  /* ═══════════ CODE OF CONDUCT ═══════════ */
+  /* ── CODE OF CONDUCT ── */
   if(view==='conduct') return(
     <div style={{minHeight:'100vh',background:dark,padding:'24px',fontFamily:'system-ui,sans-serif'}}>
       <div style={{maxWidth:'480px',margin:'0 auto',display:'flex',flexDirection:'column',gap:'16px'}}>
         <div style={{textAlign:'center',paddingTop:'20px'}}>
           <img src={LOGO} alt="Hope" style={{width:'80px',borderRadius:'12px'}}/>
           <h2 style={{color:'#fff',margin:'14px 0 4px',fontSize:'22px',fontWeight:'900'}}>Rider Code of Conduct</h2>
-          <p style={{color:'#888',fontSize:'13px',margin:0}}>Read & agree before entering</p>
         </div>
         <div style={{background:cardBg,borderRadius:'16px',padding:'16px',display:'flex',flexDirection:'column',gap:'14px',maxHeight:'52vh',overflowY:'auto'}}>
-          {[['Gender Policy','This service is strictly for women and children (boys under 12). Male adults at pickup = immediate cancellation, no refund.'],
-            ['ID Verification','You agree to submit a photo ID for manual verification. No account sharing.'],
-            ['Respectful Behavior','No harassment, profanity, or aggression toward the driver.'],
-            ['Child Safety','Parents must bring appropriate car seats per Tennessee law.'],
-            ['Zero Tolerance','No smoking, vaping, or open alcohol/drug containers in the vehicle.'],
-            ['Right to Refuse','Driver may cancel any ride if she feels unsafe.'],
-            ['Privacy','We collect name, email, phone, GPS (active trips only). We never sell your data.'],
-          ].map(([t,d])=>(
+          {[['Gender Policy','Women and children only (boys under 12). Male adults = immediate cancellation, no refund.'],['ID Verification','Submit a photo ID for manual verification.'],['Respectful Behavior','No harassment, profanity, or aggression.'],['Child Safety','Bring appropriate car seats per Tennessee law.'],['Zero Tolerance','No smoking, vaping, or open alcohol/drugs.'],['Right to Refuse','Driver may cancel if she feels unsafe.'],['Privacy','We collect name, email, phone, GPS (active trips only). We never sell your data.']].map(([t,d])=>(
             <div key={t}><p style={{margin:'0 0 3px',fontWeight:'700',color:pink2,fontSize:'13px'}}>{t}</p><p style={{margin:0,color:'#bbb',fontSize:'13px',lineHeight:'1.5'}}>{d}</p></div>
           ))}
         </div>
         <label style={{...row,gap:'12px',color:'#ddd',fontSize:'14px',cursor:'pointer'}}>
           <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{width:'20px',height:'20px',accentColor:pink,flexShrink:0}}/>
-          I have read and agree to the Code of Conduct & Privacy Policy
+          I have read and agree to the Code of Conduct
         </label>
         <button style={{...btn(),opacity:agreed?1:0.4}} disabled={!agreed} onClick={agreeConduct}>Continue to Hope Rideshare</button>
         <button onClick={signOut} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:'13px',textAlign:'center'}}>Sign Out</button>
@@ -404,7 +347,7 @@ export default function App(){
     </div>
   );
 
-  /* ═══════════ SAFETY HUB ═══════════ */
+  /* ── SAFETY HUB ── */
   if(safety) return(
     <div style={{minHeight:'100vh',background:'#0a0a0a',padding:'24px',fontFamily:'system-ui,sans-serif'}}>
       <div style={{maxWidth:'480px',margin:'0 auto',display:'flex',flexDirection:'column',gap:'14px'}}>
@@ -413,7 +356,6 @@ export default function App(){
           <button onClick={()=>setSafety(false)} style={{...ghostBtn,padding:'8px 16px'}}>Close</button>
         </div>
         <button onClick={triggerSOS} style={{background:'#c62828',color:'#fff',border:'none',borderRadius:'16px',padding:'22px',fontWeight:'900',fontSize:'20px',cursor:'pointer',boxShadow:'0 6px 24px rgba(198,40,40,0.6)'}}>SOS — Emergency Alert</button>
-        <p style={{color:'#666',fontSize:'12px',textAlign:'center',margin:'-4px 0 0'}}>Sends GPS location to 911 via SMS</p>
         <div style={{background:cardBg,borderRadius:'16px',padding:'16px'}}>
           <p style={{margin:'0 0 10px',fontWeight:'700',color:pink2}}>Share My Trip</p>
           <button style={btn('#2a2a2a','#ddd')} onClick={()=>{const t=encodeURIComponent('I am on a Hope Rideshare trip: https://hope-rideshare.netlify.app');window.open(`sms:?body=${t}`);}}>Share Trip via SMS</button>
@@ -423,10 +365,6 @@ export default function App(){
             <p style={{margin:'0 0 8px',fontWeight:'700',color:pink2}}>Active Ride</p>
             <p style={{margin:'0 0 2px',color:'#ccc',fontSize:'13px'}}>{activeRide.pickup_address}</p>
             <p style={{margin:'0 0 12px',color:'#ccc',fontSize:'13px'}}>{activeRide.dropoff_address}</p>
-            <div style={{background:'#2a2a2a',borderRadius:'10px',padding:'10px'}}>
-              <p style={{margin:'0 0 2px',fontWeight:'800',color:'#fff',fontSize:'13px'}}>Hope Schiesser — Your Driver</p>
-              <p style={{margin:0,color:'#888',fontSize:'12px'}}>Women-Only Pilot · Verified</p>
-            </div>
           </div>
         )}
         <div style={{background:cardBg,borderRadius:'16px',padding:'16px'}}>
@@ -439,36 +377,27 @@ export default function App(){
     </div>
   );
 
-  /* ═══════════ RIDER ═══════════ */
+  /* ── RIDER ── */
   if(view==='rider'){
     const firstName=profile?.full_name?.split(' ')[0]||'there';
     const isVerified=profile?.is_verified;
     const hasIdPending=profile?.id_photo_url&&!isVerified;
     return(
       <div style={{minHeight:'100vh',background:dark,fontFamily:'system-ui,sans-serif',position:'relative',overflow:'hidden',height:'100vh'}}>
-        {/* TOP NAV */}
         <div style={{position:'absolute',top:0,left:0,right:0,zIndex:20,padding:'14px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',background:'linear-gradient(to bottom,rgba(0,0,0,0.8),transparent)'}}>
           <div style={{...row,gap:'10px'}}>
             <img src={LOGO} alt="Hope" style={{width:'36px',height:'36px',borderRadius:'8px',objectFit:'cover'}}/>
             <span style={{color:'#fff',fontWeight:'800',fontSize:'15px'}}>Hope</span>
           </div>
           <div style={{...row,gap:'8px'}}>
-            {!isVerified&&(
-              <div style={{background:'rgba(255,152,0,0.2)',border:'1px solid #ff9800',borderRadius:'20px',padding:'5px 10px'}}>
-                <span style={{color:'#ff9800',fontSize:'11px',fontWeight:'700'}}>PENDING VERIFY</span>
-              </div>
-            )}
+            {!isVerified&&<div style={{background:'rgba(255,152,0,0.2)',border:'1px solid #ff9800',borderRadius:'20px',padding:'5px 10px'}}><span style={{color:'#ff9800',fontSize:'11px',fontWeight:'700'}}>PENDING</span></div>}
             <button onClick={()=>setSafety(true)} style={{background:'rgba(162,19,93,0.9)',border:'none',color:'#fff',borderRadius:'20px',padding:'7px 14px',fontWeight:'700',fontSize:'13px',cursor:'pointer'}}>Safety</button>
             <button onClick={signOut} style={{background:'rgba(0,0,0,0.6)',border:'1px solid #333',color:'#aaa',borderRadius:'20px',padding:'7px 12px',fontSize:'12px',cursor:'pointer'}}>Out</button>
           </div>
         </div>
-
-        {/* FULL MAP */}
         <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:0}}>
           <LiveMap pickupCoord={pickupCoord} dropoffCoord={dropoffCoord} routeCoords={routeCoords} userCoord={userCoord} height="100%"/>
         </div>
-
-        {/* ACTIVE RIDE BANNER */}
         {activeRide&&(
           <div style={{position:'absolute',top:'70px',left:'16px',right:'16px',zIndex:15,background:'rgba(162,19,93,0.93)',borderRadius:'16px',padding:'14px 16px',backdropFilter:'blur(8px)'}}>
             <div style={{...row,justifyContent:'space-between',marginBottom:'6px'}}>
@@ -479,17 +408,9 @@ export default function App(){
             <p style={{margin:0,fontSize:'12px',color:'rgba(255,255,255,0.7)'}}>{activeRide.pickup_address} → {activeRide.dropoff_address}</p>
           </div>
         )}
-
-        {routeLoading&&(
-          <div style={{position:'absolute',top:activeRide?'160px':'70px',left:'50%',transform:'translateX(-50%)',zIndex:15,background:'rgba(0,0,0,0.8)',borderRadius:'20px',padding:'8px 16px'}}>
-            <p style={{margin:0,color:pink2,fontSize:'13px',fontWeight:'700'}}>Finding route...</p>
-          </div>
-        )}
-
-        {/* BOTTOM SHEET */}
+        {routeLoading&&<div style={{position:'absolute',top:'70px',left:'50%',transform:'translateX(-50%)',zIndex:15,background:'rgba(0,0,0,0.8)',borderRadius:'20px',padding:'8px 16px'}}><p style={{margin:0,color:pink2,fontSize:'13px',fontWeight:'700'}}>Finding route...</p></div>}
         <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:10,background:dark,borderRadius:'24px 24px 0 0',boxShadow:'0 -4px 32px rgba(0,0,0,0.8)',transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)',maxHeight:sheet?'92vh':'230px',overflow:sheet?'auto':'hidden'}}>
           <div style={{width:'40px',height:'4px',background:'#333',borderRadius:'2px',margin:'12px auto 0',cursor:'pointer'}} onClick={()=>setSheet(!sheet)}/>
-
           {!sheet&&(
             <div style={{padding:'16px 20px 28px'}}>
               <p style={{margin:'0 0 14px',color:'#fff',fontWeight:'900',fontSize:'22px'}}>Hello, {firstName}</p>
@@ -499,53 +420,43 @@ export default function App(){
                 <span style={{background:`linear-gradient(135deg,${pink},${pink2})`,color:'#fff',borderRadius:'8px',padding:'4px 10px',fontSize:'12px',fontWeight:'700'}}>Now</span>
               </button>
               <div style={{display:'flex',gap:'10px'}}>
-                <button onClick={()=>{setDropoff('Home');setSheet(true);setRTab('book');}} style={{...ghostBtn,flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'center'}}>Home</button>
-                <button onClick={()=>{setDropoff('Work');setSheet(true);setRTab('book');}} style={{...ghostBtn,flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'center'}}>Work</button>
+                <button onClick={()=>{setDropoff('Home');setSheet(true);setRTab('book');}} style={{...ghostBtn,flex:1,textAlign:'center'}}>Home</button>
+                <button onClick={()=>{setDropoff('Work');setSheet(true);setRTab('book');}} style={{...ghostBtn,flex:1,textAlign:'center'}}>Work</button>
               </div>
             </div>
           )}
-
           {sheet&&(
             <div style={{paddingBottom:'32px'}}>
               <div style={{...row,gap:'8px',padding:'14px 16px 10px',overflowX:'auto',borderBottom:'1px solid #1a1a1a'}}>
                 {[['home','Home'],['book','Book'],['schedule','Schedule'],['history','History'],['profile','Profile']].map(([t,l])=>(
                   <button key={t} style={pill(rTab===t)} onClick={()=>setRTab(t)}>{l}</button>
                 ))}
-                <button onClick={()=>setSheet(false)} style={{...pill(false),marginLeft:'auto'}}>X</button>
+                <button onClick={()=>setSheet(false)} style={{...pill(false),marginLeft:'auto'}}>✕</button>
               </div>
-
               <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:'14px'}}>
-
-                {/* HOME */}
                 {rTab==='home'&&(
                   <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
                     {!isVerified&&(
                       <div style={{background:'rgba(255,152,0,0.1)',border:'1px solid #ff9800',borderRadius:'14px',padding:'14px'}}>
                         <p style={{margin:'0 0 6px',fontWeight:'700',color:'#ff9800',fontSize:'14px'}}>ID Verification Required</p>
-                        <p style={{margin:'0 0 10px',color:'#ccc',fontSize:'13px'}}>{hasIdPending?'Your ID is under review — you\'ll be notified once approved.':'Upload a photo of your ID to unlock ride booking.'}</p>
+                        <p style={{margin:'0 0 10px',color:'#ccc',fontSize:'13px'}}>{hasIdPending?'Your ID is under review.':'Upload your ID to unlock ride booking.'}</p>
                         {!hasIdPending&&<button style={{...btn(),padding:'11px'}} onClick={()=>setRTab('profile')}>Upload My ID</button>}
                       </div>
                     )}
                     <div style={{display:'flex',gap:'10px'}}>
                       {[[history.length,'Rides','rgba(162,19,93,0.25)'],[isVerified?'Verified':'Pending','Status',cardBg],['5.0','Rating',cardBg]].map(([v,l,bg])=>(
                         <div key={l} style={{background:bg,borderRadius:'12px',padding:'14px',flex:1,textAlign:'center'}}>
-                          <p style={{margin:0,fontWeight:'900',color:isVerified||l==='Rides'||l==='Rating'?pink2:'#ff9800',fontSize:'16px'}}>{v}</p>
+                          <p style={{margin:0,fontWeight:'900',color:pink2,fontSize:'16px'}}>{v}</p>
                           <p style={{margin:'4px 0 0',fontSize:'11px',color:'#888'}}>{l}</p>
                         </div>
                       ))}
                     </div>
-                    <button onClick={triggerSOS} style={{background:'#c62828',color:'#fff',border:'none',borderRadius:'14px',padding:'16px',fontWeight:'900',fontSize:'16px',cursor:'pointer',boxShadow:'0 4px 16px rgba(198,40,40,0.4)'}}>SOS — Emergency Alert</button>
+                    <button onClick={triggerSOS} style={{background:'#c62828',color:'#fff',border:'none',borderRadius:'14px',padding:'16px',fontWeight:'900',fontSize:'16px',cursor:'pointer'}}>SOS — Emergency Alert</button>
                   </div>
                 )}
-
-                {/* BOOK */}
                 {rTab==='book'&&(
                   <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                    {!isVerified&&(
-                      <div style={{background:'rgba(255,152,0,0.1)',border:'1px solid #ff9800',borderRadius:'12px',padding:'12px'}}>
-                        <p style={{margin:0,color:'#ff9800',fontSize:'13px',fontWeight:'700'}}>{hasIdPending?'ID under review — booking unlocks after approval':'Upload your ID first to book a ride'}</p>
-                      </div>
-                    )}
+                    {!isVerified&&<div style={{background:'rgba(255,152,0,0.1)',border:'1px solid #ff9800',borderRadius:'12px',padding:'12px'}}><p style={{margin:0,color:'#ff9800',fontSize:'13px',fontWeight:'700'}}>{hasIdPending?'ID under review — booking unlocks after approval':'Upload your ID first'}</p></div>}
                     <div style={{background:cardBg,borderRadius:'16px',padding:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
                       <div style={{...row,gap:'12px'}}>
                         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}}>
@@ -561,83 +472,55 @@ export default function App(){
                       {stops.map((s,i)=>(
                         <div key={i} style={{...row,gap:'8px'}}>
                           <input style={{...inp,flex:1}} placeholder={`Stop ${i+1}`} value={s} onChange={e=>{const a=[...stops];a[i]=e.target.value;setStops(a);}}/>
-                          <button onClick={()=>setStops(stops.filter((_,j)=>j!==i))} style={{background:'#333',border:'none',color:'#f06292',borderRadius:'8px',padding:'8px 12px',cursor:'pointer'}}>X</button>
+                          <button onClick={()=>setStops(stops.filter((_,j)=>j!==i))} style={{background:'#333',border:'none',color:'#f06292',borderRadius:'8px',padding:'8px 12px',cursor:'pointer'}}>✕</button>
                         </div>
                       ))}
                       <div style={{...row,gap:'8px'}}>
                         {stops.length<2&&<button style={{...ghostBtn,flex:1}} onClick={()=>setStops([...stops,''])}>+ Add Stop</button>}
-                        <label style={{...ghostBtn,flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'center',cursor:'pointer'}}>
-                          <input type="checkbox" checked={hasPet} onChange={e=>setHasPet(e.target.checked)} style={{accentColor:pink}}/>Pet (+$5)
-                        </label>
+                        <label style={{...ghostBtn,flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'center',cursor:'pointer'}}><input type="checkbox" checked={hasPet} onChange={e=>setHasPet(e.target.checked)} style={{accentColor:pink}}/>Pet (+$5)</label>
                       </div>
                     </div>
-                    {routeInfo&&(
-                      <div style={{...row,gap:'12px',background:'rgba(162,19,93,0.15)',borderRadius:'12px',padding:'10px 14px',border:`1px solid ${pink}`}}>
-                        <span style={{color:pink2,fontSize:'18px'}}>🗺️</span>
-                        <div><p style={{margin:0,color:'#fff',fontWeight:'700',fontSize:'14px'}}>{routeInfo.distMi.toFixed(1)} miles · {Math.round(routeInfo.durMin)} min</p><p style={{margin:0,color:'#888',fontSize:'12px'}}>Real road route</p></div>
-                      </div>
-                    )}
+                    {routeInfo&&<div style={{...row,gap:'12px',background:'rgba(162,19,93,0.15)',borderRadius:'12px',padding:'10px 14px',border:`1px solid ${pink}`}}><span style={{color:pink2,fontSize:'18px'}}>🗺️</span><div><p style={{margin:0,color:'#fff',fontWeight:'700',fontSize:'14px'}}>{routeInfo.distMi.toFixed(1)} miles · {Math.round(routeInfo.durMin)} min</p></div></div>}
                     <div style={{background:cardBg,borderRadius:'16px',padding:'16px',border:`2px solid ${pink}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div>
-                        <p style={{margin:'0 0 4px',fontWeight:'800',color:'#fff',fontSize:'15px'}}>Women-Only Pilot</p>
-                        <p style={{margin:0,color:'#888',fontSize:'12px'}}>Verified driver · Safe & private</p>
-                        {routeInfo&&<p style={{margin:'4px 0 0',color:'#555',fontSize:'11px'}}>~{Math.round(routeInfo.durMin)} min ETA</p>}
-                      </div>
-                      <div style={{textAlign:'right'}}>
-                        <p style={{margin:0,fontWeight:'900',color:pink2,fontSize:'22px'}}>${fare.total}</p>
-                        <p style={{margin:0,color:'#555',fontSize:'11px'}}>estimated</p>
-                      </div>
+                      <div><p style={{margin:'0 0 4px',fontWeight:'800',color:'#fff',fontSize:'15px'}}>Women-Only Pilot</p><p style={{margin:0,color:'#888',fontSize:'12px'}}>Verified driver · Safe & private</p></div>
+                      <div style={{textAlign:'right'}}><p style={{margin:0,fontWeight:'900',color:pink2,fontSize:'22px'}}>${fare.total}</p><p style={{margin:0,color:'#555',fontSize:'11px'}}>estimated</p></div>
                     </div>
                     <div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
                       <p style={{margin:'0 0 10px',fontWeight:'700',color:pink2,fontSize:'12px',letterSpacing:'0.5px'}}>FARE BREAKDOWN</p>
                       {[['Base Fare',`$${fare.base}`],[`Distance (${fare.distMi}mi)`,`$${fare.dist}`],[`Duration (${fare.durMin}min)`,`$${fare.dur}`],hasPet&&['Pet','$5.00'],stops.filter(Boolean).length>0&&['Stops',`$${fare.stops}`]].filter(Boolean).map(([k,v])=>(
                         <div key={k} style={{...row,justifyContent:'space-between',marginBottom:'6px'}}><span style={{color:'#888',fontSize:'12px'}}>{k}</span><span style={{color:'#ccc',fontSize:'13px'}}>{v}</span></div>
                       ))}
-                      <div style={{borderTop:'1px solid #333',paddingTop:'10px',...row,justifyContent:'space-between'}}>
-                        <span style={{color:'#fff',fontWeight:'800',fontSize:'15px'}}>Total</span>
-                        <span style={{color:pink2,fontWeight:'900',fontSize:'20px'}}>${fare.total}</span>
-                      </div>
+                      <div style={{borderTop:'1px solid #333',paddingTop:'10px',...row,justifyContent:'space-between'}}><span style={{color:'#fff',fontWeight:'800',fontSize:'15px'}}>Total</span><span style={{color:pink2,fontWeight:'900',fontSize:'20px'}}>${fare.total}</span></div>
                     </div>
                     {msg&&<p style={{color:'#f06292',fontSize:'13px',margin:0,textAlign:'center'}}>{msg}</p>}
-                    <button style={{...btn(),opacity:isVerified?1:0.5}} onClick={requestRide} disabled={loading||routeLoading||!isVerified}>
-                      {routeLoading?'Calculating...':loading?'Processing...':`Request & Pay $${fare.total}`}
-                    </button>
+                    <button style={{...btn(),opacity:isVerified?1:0.5}} onClick={requestRide} disabled={loading||routeLoading||!isVerified}>{routeLoading?'Calculating...':loading?'Processing...':`Request & Pay $${fare.total}`}</button>
                     {!isVerified&&<p style={{color:'#ff9800',fontSize:'12px',textAlign:'center',margin:0}}>Booking unlocks after ID verification</p>}
                   </div>
                 )}
-
-                {/* SCHEDULE */}
                 {rTab==='schedule'&&(
                   <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
                     <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Schedule a Ride</h3>
                     <div style={{background:cardBg,borderRadius:'16px',padding:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
-                      <input style={inp} placeholder="Pickup Address"/>
-                      <input style={inp} placeholder="Dropoff Address"/>
+                      <input style={inp} placeholder="Pickup Address"/><input style={inp} placeholder="Dropoff Address"/>
                       <input type="datetime-local" style={{...inp,colorScheme:'dark'}} min={new Date().toISOString().slice(0,16)}/>
                       <button style={{...btn(),opacity:isVerified?1:0.5}} disabled={!isVerified}>Schedule Ride</button>
                     </div>
                   </div>
                 )}
-
-                {/* HISTORY */}
                 {rTab==='history'&&(
                   <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
                     <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Ride History</h3>
-                    {history.length===0
-                      ?<div style={{background:cardBg,borderRadius:'14px',padding:'20px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>No rides yet. Book your first! 🌸</p></div>
-                      :history.map(r=>(
-                        <div key={r.id} style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
-                          <div style={{...row,justifyContent:'space-between',marginBottom:'6px'}}><span style={{color:pink2,fontWeight:'700',fontSize:'12px',textTransform:'uppercase'}}>{r.status}</span><span style={{color:pink2,fontWeight:'900'}}>${r.fare_total?.toFixed(2)||'--'}</span></div>
-                          <p style={{margin:'0 0 2px',color:'#ccc',fontSize:'13px'}}>{r.pickup_address}</p>
-                          <p style={{margin:0,color:'#888',fontSize:'13px'}}>{r.dropoff_address}</p>
-                          <p style={{margin:'6px 0 0',color:'#444',fontSize:'11px'}}>{new Date(r.created_at).toLocaleDateString()}</p>
-                        </div>
-                      ))
-                    }
+                    {history.length===0?<div style={{background:cardBg,borderRadius:'14px',padding:'20px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>No rides yet. Book your first!</p></div>
+                    :history.map(r=>(
+                      <div key={r.id} style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
+                        <div style={{...row,justifyContent:'space-between',marginBottom:'6px'}}><span style={{color:pink2,fontWeight:'700',fontSize:'12px',textTransform:'uppercase'}}>{r.status}</span><span style={{color:pink2,fontWeight:'900'}}>${r.fare_total?.toFixed(2)||'--'}</span></div>
+                        <p style={{margin:'0 0 2px',color:'#ccc',fontSize:'13px'}}>{r.pickup_address}</p>
+                        <p style={{margin:0,color:'#888',fontSize:'13px'}}>{r.dropoff_address}</p>
+                        <p style={{margin:'6px 0 0',color:'#444',fontSize:'11px'}}>{new Date(r.created_at).toLocaleDateString()}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
-
-                {/* PROFILE */}
                 {rTab==='profile'&&(
                   <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
                     <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>My Profile</h3>
@@ -645,57 +528,26 @@ export default function App(){
                       <div style={{width:'72px',height:'72px',borderRadius:'50%',background:`linear-gradient(135deg,${pink},${pink2})`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px',fontSize:'28px',color:'#fff',fontWeight:'800'}}>{profile?.full_name?.[0]||'?'}</div>
                       <p style={{margin:'0 0 4px',color:'#fff',fontWeight:'800',fontSize:'18px'}}>{profile?.full_name||'Rider'}</p>
                       <p style={{margin:'0 0 2px',color:'#888',fontSize:'13px'}}>{session?.user?.email}</p>
-                      <p style={{margin:0,color:'#888',fontSize:'13px'}}>{profile?.phone||'No phone'}</p>
                     </div>
-
-                    {/* ID Verification section */}
                     <div style={{background:cardBg,borderRadius:'16px',padding:'16px'}}>
                       <p style={{margin:'0 0 8px',fontWeight:'700',color:pink2,fontSize:'14px'}}>ID Verification</p>
-                      {isVerified?(
-                        <div style={{...row,gap:'10px'}}><span style={{fontSize:'20px'}}>✅</span><p style={{margin:0,color:'#4caf50',fontWeight:'700',fontSize:'14px'}}>Verified — Ride booking unlocked!</p></div>
-                      ):hasIdPending?(
-                        <div>
-                          <div style={{...row,gap:'10px',marginBottom:'8px'}}><span style={{fontSize:'20px'}}>⏳</span><p style={{margin:0,color:'#ff9800',fontWeight:'700',fontSize:'14px'}}>ID under review</p></div>
-                          <p style={{margin:0,color:'#888',fontSize:'13px'}}>You'll be notified once the driver approves your account.</p>
-                        </div>
-                      ):(
+                      {isVerified?<div style={{...row,gap:'10px'}}><span>✅</span><p style={{margin:0,color:'#4caf50',fontWeight:'700'}}>Verified — Ride booking unlocked!</p></div>
+                      :hasIdPending?<div><p style={{margin:0,color:'#ff9800',fontWeight:'700'}}>⏳ ID under review</p></div>
+                      :(
                         <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-                          <p style={{margin:0,color:'#bbb',fontSize:'13px'}}>Upload a clear photo of your driver's license or government ID to unlock ride booking.</p>
+                          <p style={{margin:0,color:'#bbb',fontSize:'13px'}}>Upload a photo of your ID to unlock ride booking.</p>
                           <label style={{background:'#2a2a2a',border:`2px dashed ${pink}`,borderRadius:'12px',padding:'20px',textAlign:'center',cursor:'pointer',display:'block'}}>
                             <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>setIdFile(e.target.files[0])}/>
-                            {idFile?(
-                              <div><p style={{margin:'0 0 4px',color:'#4caf50',fontWeight:'700',fontSize:'14px'}}>Selected: {idFile.name}</p><p style={{margin:0,color:'#888',fontSize:'12px'}}>Tap to change</p></div>
-                            ):(
-                              <div><p style={{margin:'0 0 4px',color:pink2,fontSize:'24px'}}>📷</p><p style={{margin:'0 0 2px',color:'#fff',fontWeight:'700',fontSize:'14px'}}>Tap to upload ID photo</p><p style={{margin:0,color:'#666',fontSize:'12px'}}>JPG, PNG accepted</p></div>
-                            )}
+                            {idFile?<p style={{margin:0,color:'#4caf50',fontWeight:'700'}}>{idFile.name}</p>:<div><p style={{margin:'0 0 4px',color:pink2,fontSize:'24px'}}>📷</p><p style={{margin:0,color:'#fff',fontWeight:'700',fontSize:'14px'}}>Tap to upload ID photo</p></div>}
                           </label>
-                          {idFile&&(
-                            <button style={btn()} onClick={uploadIdPhoto} disabled={idUploading}>
-                              {idUploading?'Uploading...':'Submit ID for Verification'}
-                            </button>
-                          )}
+                          {idFile&&<button style={btn()} onClick={uploadIdPhoto} disabled={idUploading}>{idUploading?'Uploading...':'Submit ID for Verification'}</button>}
                         </div>
                       )}
                     </div>
-
-                    {/* Notification opt-in */}
-                    {notifPerm!=='granted'&&(
-                      <div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
-                        <p style={{margin:'0 0 8px',fontWeight:'700',color:pink2,fontSize:'14px'}}>Enable Notifications</p>
-                        <p style={{margin:'0 0 10px',color:'#bbb',fontSize:'13px'}}>Get notified when your ride is accepted.</p>
-                        <button style={{...btn(),padding:'11px'}} onClick={requestNotifPermission}>Enable Notifications</button>
-                      </div>
-                    )}
-
-                    <div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
-                      {[['Account','Active'],['Conduct','Agreed'],['Rides',history.length],['Rating','5.0']].map(([k,v])=>(
-                        <div key={k} style={{...row,justifyContent:'space-between',marginBottom:'8px'}}><span style={{color:'#888',fontSize:'13px'}}>{k}</span><span style={{color:'#4caf50',fontWeight:'700',fontSize:'13px'}}>{v}</span></div>
-                      ))}
-                    </div>
+                    {notifPerm!=='granted'&&<div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}><p style={{margin:'0 0 8px',fontWeight:'700',color:pink2}}>Enable Notifications</p><button style={{...btn(),padding:'11px'}} onClick={requestNotifPermission}>Enable</button></div>}
                     <button style={btn('#2a2a2a','#f06292')} onClick={signOut}>Sign Out</button>
                   </div>
                 )}
-
               </div>
             </div>
           )}
@@ -704,77 +556,114 @@ export default function App(){
     );
   }
 
-  /* ═══════════ DRIVER ═══════════ */
+  /* ══════════════════════════════════════════════
+     DRIVER CONSOLE — Figma-style layout
+  ══════════════════════════════════════════════ */
   if(view==='driver'){
     const pendingList=pending.filter(r=>r.status==='pending');
     const activeList=pending.filter(r=>r.status==='accepted');
+
+    // Rider cards styled like the Figma mockup
+    const RiderCard=({r})=>(
+      <div style={{background:cardBg,borderRadius:'16px',padding:'16px',marginBottom:'12px',border:'1px solid #2a2a2a'}}>
+        <div style={{...row,justifyContent:'space-between',marginBottom:'10px'}}>
+          <div style={{...row,gap:'12px'}}>
+            <div style={{width:'48px',height:'48px',borderRadius:'50%',background:`linear-gradient(135deg,${pink},${pink2})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:'900',fontSize:'18px',flexShrink:0}}>{r.rider_name?.[0]||'R'}</div>
+            <div>
+              <p style={{margin:'0 0 2px',fontWeight:'800',color:'#fff',fontSize:'16px'}}>{r.rider_name||'Rider'}</p>
+              <div style={{...row,gap:'4px'}}><span style={{color:'#ffd700',fontSize:'12px'}}>★</span><span style={{color:'#888',fontSize:'12px'}}>5.0</span></div>
+            </div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <p style={{margin:'0 0 2px',fontWeight:'900',color:pink2,fontSize:'20px'}}>${r.fare_total?.toFixed(2)}</p>
+            <p style={{margin:0,color:'#666',fontSize:'12px'}}>{r.has_pet?'🐾 Pet':''}</p>
+          </div>
+        </div>
+        <div style={{...row,gap:'8px',marginBottom:'12px',background:'#1a1a1a',borderRadius:'10px',padding:'10px'}}>
+          <span style={{color:pink2,fontSize:'14px'}}>📍</span>
+          <div style={{flex:1}}>
+            <p style={{margin:'0 0 3px',color:'#ccc',fontSize:'13px'}}>{r.pickup_address}</p>
+            <p style={{margin:0,color:'#888',fontSize:'12px'}}>→ {r.dropoff_address}</p>
+          </div>
+        </div>
+        <button style={{...btn(),padding:'14px',borderRadius:'12px',fontSize:'15px'}} onClick={()=>updateStatus(r.id,'accepted')}>Accept Request</button>
+      </div>
+    );
+
     return(
       <div style={{minHeight:'100vh',background:dark,fontFamily:'system-ui,sans-serif'}}>
-        <div style={{background:'#0a0a0a',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid #1a1a1a',position:'sticky',top:0,zIndex:10}}>
-          <div style={{...row,gap:'10px'}}>
-            <img src={LOGO} alt="Hope" style={{width:'38px',height:'38px',borderRadius:'8px',objectFit:'cover'}}/>
-            <div><p style={{margin:0,color:'#fff',fontWeight:'800',fontSize:'14px'}}>Driver Console</p><p style={{margin:0,color:'#666',fontSize:'11px'}}>Hope Rideshare</p></div>
-          </div>
-          <div style={{...row,gap:'8px'}}>
-            <button onClick={()=>setOnline(!online)} style={{...row,gap:'8px',background:online?'rgba(46,125,50,0.3)':'rgba(162,19,93,0.2)',border:`1px solid ${online?'#2e7d32':pink}`,borderRadius:'20px',padding:'7px 14px',cursor:'pointer'}}>
-              <div style={{width:'8px',height:'8px',borderRadius:'50%',background:online?'#4caf50':'#555'}}/>
-              <span style={{color:online?'#4caf50':'#aaa',fontSize:'12px',fontWeight:'700'}}>{online?'ONLINE':'OFFLINE'}</span>
-            </button>
-            <button onClick={signOut} style={{...ghostBtn,padding:'7px 12px',fontSize:'12px'}}>Out</button>
+
+        {/* TOP HEADER */}
+        <div style={{background:`linear-gradient(135deg,${pink},${pink2})`,padding:'14px 20px'}}>
+          <div style={{...row,justifyContent:'space-between',marginBottom:'4px'}}>
+            <div style={{...row,gap:'10px'}}>
+              <img src={LOGO} alt="Hope" style={{width:'36px',height:'36px',borderRadius:'8px',objectFit:'cover'}}/>
+              <div>
+                <p style={{margin:0,color:'#fff',fontWeight:'900',fontSize:'18px'}}>Hope Driver</p>
+                <p style={{margin:0,color:'rgba(255,255,255,0.75)',fontSize:'12px'}}>Start earning today</p>
+              </div>
+            </div>
+            <div style={{...row,gap:'8px'}}>
+              <button onClick={toggleOnline} style={{background:online?'rgba(255,255,255,0.25)':'rgba(0,0,0,0.3)',border:'2px solid rgba(255,255,255,0.5)',borderRadius:'20px',padding:'7px 14px',cursor:'pointer',...row,gap:'6px'}}>
+                <div style={{width:'8px',height:'8px',borderRadius:'50%',background:online?'#fff':'rgba(255,255,255,0.4)'}}/>
+                <span style={{color:'#fff',fontSize:'12px',fontWeight:'800'}}>{online?'ONLINE':'OFFLINE'}</span>
+              </button>
+              <button onClick={signOut} style={{background:'rgba(0,0,0,0.3)',border:'none',color:'#fff',borderRadius:'12px',padding:'8px 12px',fontSize:'12px',cursor:'pointer'}}>Out</button>
+            </div>
           </div>
         </div>
 
-        {/* Notification prompt for driver */}
+        {/* NOTIFICATION PROMPT */}
         {notifPerm!=='granted'&&(
-          <div style={{background:'rgba(162,19,93,0.15)',border:`1px solid ${pink}`,margin:'12px 16px',borderRadius:'12px',padding:'12px 16px',...row,justifyContent:'space-between'}}>
-            <p style={{margin:0,color:'#fff',fontSize:'13px',fontWeight:'600'}}>Enable alerts for new ride requests</p>
-            <button style={{...btn(),width:'auto',padding:'8px 14px',fontSize:'12px'}} onClick={requestNotifPermission}>Enable</button>
+          <div style={{background:'rgba(162,19,93,0.15)',border:`1px solid ${pink}`,margin:'12px 16px 0',borderRadius:'12px',padding:'10px 16px',...row,justifyContent:'space-between'}}>
+            <p style={{margin:0,color:'#fff',fontSize:'13px'}}>Enable alerts for new ride requests</p>
+            <button style={{background:`linear-gradient(135deg,${pink},${pink2})`,border:'none',color:'#fff',borderRadius:'8px',padding:'7px 14px',fontSize:'12px',cursor:'pointer',fontWeight:'700'}} onClick={requestNotifPermission}>Enable</button>
           </div>
         )}
 
-        {/* Stats */}
-        <div style={{...row,gap:'10px',padding:'14px 16px'}}>
-          {[['Pending',stats.pending],['Today',stats.today],['Done',stats.completed],['Earned',`$${stats.earnings.toFixed(0)}`]].map(([l,v])=>(
-            <div key={l} style={{background:cardBg,borderRadius:'12px',padding:'12px',flex:1,textAlign:'center'}}>
-              <p style={{margin:'0 0 2px',fontWeight:'900',color:pink2,fontSize:'17px'}}>{v}</p>
-              <p style={{margin:0,fontSize:'10px',color:'#555'}}>{l}</p>
+        {/* THIS WEEK BANNER */}
+        <div style={{margin:'14px 16px 0',background:`linear-gradient(135deg,${pink},${pink2})`,borderRadius:'16px',padding:'16px 20px',...row,justifyContent:'space-between'}}>
+          <div>
+            <p style={{margin:'0 0 4px',color:'rgba(255,255,255,0.8)',fontSize:'12px',fontWeight:'600'}}>THIS WEEK</p>
+            <p style={{margin:'0 0 4px',fontWeight:'900',color:'#fff',fontSize:'32px'}}>${stats.weekEarnings.toFixed(0)||'0'}</p>
+            <p style={{margin:0,color:'rgba(255,255,255,0.75)',fontSize:'13px'}}>{stats.weekTrips} trips · {typeof stats.hoursOnline==='number'?stats.hoursOnline.toFixed(1):stats.hoursOnline}h online</p>
+          </div>
+          <span style={{fontSize:'28px',opacity:0.8}}>📈</span>
+        </div>
+
+        {/* STATS ROW */}
+        <div style={{...row,gap:'10px',padding:'12px 16px'}}>
+          {[['⏳',stats.pending,'Pending'],['🚗',stats.today,'Today'],['✅',stats.completed,'Done'],['💰',`$${stats.earnings.toFixed(0)}}`,'Today $']].map(([icon,val,label])=>(
+            <div key={label} style={{background:cardBg,borderRadius:'12px',padding:'12px 8px',flex:1,textAlign:'center',border:'1px solid #2a2a2a'}}>
+              <p style={{margin:'0 0 2px',fontSize:'14px'}}>{icon}</p>
+              <p style={{margin:'0 0 2px',fontWeight:'900',color:pink2,fontSize:'16px'}}>{val}</p>
+              <p style={{margin:0,fontSize:'10px',color:'#555'}}>{label}</p>
             </div>
           ))}
         </div>
 
+        {/* TABS */}
         <div style={{...row,gap:'8px',padding:'0 16px 12px',overflowX:'auto'}}>
-          {[['requests',`Requests${pendingList.length>0?` (${pendingList.length})`:''}`,],['active','Active'],['verify',`Verify${unverifiedRiders.length>0?` (${unverifiedRiders.length})`:''}`,],['earnings','Earnings'],['map','Map']].map(([t,l])=>(
+          {[['requests',`Nearby Requests${pendingList.length>0?` (${pendingList.length})`:''}`,],['active','Active'],['verify',`Verify${unverifiedRiders.length>0?` (${unverifiedRiders.length})`:''}`,],['earnings','Earnings'],['map','Map']].map(([t,l])=>(
             <button key={t} style={pill(dTab===t)} onClick={()=>setDTab(t)}>{l}</button>
           ))}
         </div>
 
-        <div style={{padding:'0 16px 32px',display:'flex',flexDirection:'column',gap:'12px'}}>
+        <div style={{padding:'0 16px 32px',display:'flex',flexDirection:'column',gap:'0'}}>
 
-          {/* REQUESTS */}
+          {/* NEARBY REQUESTS — Figma card style */}
           {dTab==='requests'&&(
             <>
-              <div style={{...row,justifyContent:'space-between'}}>
-                <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Incoming Requests</h3>
-                <button onClick={()=>{fetchPending();fetchStats();}} style={{...ghostBtn,padding:'6px 12px',fontSize:'12px'}}>Refresh</button>
+              <div style={{...row,justifyContent:'space-between',marginBottom:'14px'}}>
+                <h3 style={{margin:0,color:'#fff',fontWeight:'900',fontSize:'18px'}}>Nearby Requests</h3>
+                <div style={{...row,gap:'8px'}}>
+                  <span style={{color:pink2,fontSize:'13px',fontWeight:'700'}}>{pendingList.length} available</span>
+                  <button onClick={()=>{fetchPending();fetchStats();}} style={{...ghostBtn,padding:'6px 12px',fontSize:'12px'}}>↻</button>
+                </div>
               </div>
               {pendingList.length===0
-                ?<div style={{background:cardBg,borderRadius:'14px',padding:'20px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>{online?'No pending requests':'Go Online to receive requests'}</p></div>
-                :pendingList.map(r=>(
-                  <div key={r.id} style={{background:cardBg,borderRadius:'16px',padding:'16px',border:'1px solid #2a2a2a'}}>
-                    <div style={{...row,justifyContent:'space-between',marginBottom:'10px'}}>
-                      <div><p style={{margin:'0 0 2px',fontWeight:'800',color:'#fff',fontSize:'16px'}}>{r.rider_name||'Rider'}</p><p style={{margin:0,color:'#666',fontSize:'12px'}}>{r.rider_phone}</p></div>
-                      <div style={{textAlign:'right'}}><p style={{margin:0,fontWeight:'900',color:pink2,fontSize:'20px'}}>${r.fare_total?.toFixed(2)}</p>{r.has_pet&&<p style={{margin:0,color:'#888',fontSize:'11px'}}>Pet</p>}</div>
-                    </div>
-                    <div style={{background:'#1a1a1a',borderRadius:'10px',padding:'10px',marginBottom:'12px'}}>
-                      <p style={{margin:'0 0 4px',color:'#ccc',fontSize:'13px'}}>{r.pickup_address}</p>
-                      <p style={{margin:0,color:'#aaa',fontSize:'13px'}}>{r.dropoff_address}</p>
-                    </div>
-                    <div style={{...row,gap:'8px'}}>
-                      <button style={{...btn(),flex:1,padding:'12px'}} onClick={()=>updateStatus(r.id,'accepted')}>Accept</button>
-                      <button style={{...btn('#2a2a2a','#ccc'),flex:1,padding:'12px'}} onClick={()=>updateStatus(r.id,'cancelled')}>Decline</button>
-                    </div>
-                  </div>
-                ))
+                ?<div style={{background:cardBg,borderRadius:'14px',padding:'24px',textAlign:'center'}}><p style={{margin:'0 0 6px',fontSize:'28px'}}>🚗</p><p style={{margin:0,color:'#555',fontSize:'14px'}}>{online?'No ride requests yet':'Go Online to receive requests'}</p></div>
+                :pendingList.map(r=><RiderCard key={r.id} r={r}/>)
               }
             </>
           )}
@@ -782,17 +671,22 @@ export default function App(){
           {/* ACTIVE */}
           {dTab==='active'&&(
             <>
-              <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Active Rides</h3>
+              <h3 style={{margin:'0 0 14px',color:'#fff',fontWeight:'900',fontSize:'18px'}}>Active Rides</h3>
               {activeList.length===0
-                ?<div style={{background:cardBg,borderRadius:'14px',padding:'20px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>No active rides</p></div>
+                ?<div style={{background:cardBg,borderRadius:'14px',padding:'24px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>No active rides</p></div>
                 :activeList.map(r=>(
-                  <div key={r.id} style={{background:cardBg,borderRadius:'16px',padding:'16px',border:`2px solid ${pink}`}}>
-                    <p style={{margin:'0 0 6px',fontWeight:'800',color:pink2,fontSize:'15px'}}>{r.rider_name}</p>
-                    <p style={{margin:'0 0 2px',color:'#ccc',fontSize:'13px'}}>{r.pickup_address}</p>
-                    <p style={{margin:'0 0 14px',color:'#aaa',fontSize:'13px'}}>{r.dropoff_address}</p>
+                  <div key={r.id} style={{background:cardBg,borderRadius:'16px',padding:'16px',marginBottom:'12px',border:`2px solid ${pink}`}}>
+                    <div style={{...row,gap:'12px',marginBottom:'12px'}}>
+                      <div style={{width:'48px',height:'48px',borderRadius:'50%',background:`linear-gradient(135deg,${pink},${pink2})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:'900',fontSize:'18px'}}>{r.rider_name?.[0]||'R'}</div>
+                      <div><p style={{margin:'0 0 2px',fontWeight:'800',color:'#fff',fontSize:'16px'}}>{r.rider_name}</p><p style={{margin:0,color:pink2,fontWeight:'700',fontSize:'13px'}}>${r.fare_total?.toFixed(2)}</p></div>
+                    </div>
+                    <div style={{background:'#1a1a1a',borderRadius:'10px',padding:'10px',marginBottom:'12px'}}>
+                      <p style={{margin:'0 0 4px',color:'#ccc',fontSize:'13px'}}>📍 {r.pickup_address}</p>
+                      <p style={{margin:0,color:'#aaa',fontSize:'13px'}}>🏁 {r.dropoff_address}</p>
+                    </div>
                     <div style={{...row,gap:'8px'}}>
-                      <button style={{...btn(),flex:1,padding:'11px'}} onClick={()=>updateStatus(r.id,'en_route')}>En Route</button>
-                      <button style={{...btn('#2e7d32'),flex:1,padding:'11px'}} onClick={()=>updateStatus(r.id,'completed')}>Complete</button>
+                      <button style={{...btn(),flex:1,padding:'12px',fontSize:'14px'}} onClick={()=>updateStatus(r.id,'en_route')}>En Route</button>
+                      <button style={{...btn('linear-gradient(135deg,#2e7d32,#388e3c)'),flex:1,padding:'12px',fontSize:'14px'}} onClick={()=>updateStatus(r.id,'completed')}>Complete</button>
                     </div>
                   </div>
                 ))
@@ -800,28 +694,23 @@ export default function App(){
             </>
           )}
 
-          {/* VERIFY RIDERS */}
+          {/* VERIFY */}
           {dTab==='verify'&&(
             <>
-              <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Rider Verification</h3>
-              <p style={{margin:0,color:'#888',fontSize:'13px'}}>Review submitted IDs and approve or reject riders.</p>
+              <h3 style={{margin:'0 0 8px',color:'#fff',fontWeight:'900',fontSize:'18px'}}>Rider Verification</h3>
+              <p style={{margin:'0 0 14px',color:'#888',fontSize:'13px'}}>Review submitted IDs and approve or reject.</p>
               {unverifiedRiders.length===0
-                ?<div style={{background:cardBg,borderRadius:'14px',padding:'20px',textAlign:'center'}}><p style={{margin:0,color:'#555'}}>No riders pending verification</p></div>
+                ?<div style={{background:cardBg,borderRadius:'14px',padding:'24px',textAlign:'center'}}><p style={{margin:'0 0 6px',fontSize:'28px'}}>✅</p><p style={{margin:0,color:'#555'}}>No riders pending verification</p></div>
                 :unverifiedRiders.map(r=>(
-                  <div key={r.id} style={{background:cardBg,borderRadius:'16px',padding:'16px',border:`1px solid ${pink}`}}>
+                  <div key={r.id} style={{background:cardBg,borderRadius:'16px',padding:'16px',marginBottom:'12px',border:`1px solid ${pink}`}}>
                     <div style={{...row,gap:'12px',marginBottom:'12px'}}>
-                      <div style={{width:'48px',height:'48px',borderRadius:'50%',background:`linear-gradient(135deg,${pink},${pink2})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:'800',fontSize:'18px',flexShrink:0}}>{r.full_name?.[0]||'?'}</div>
+                      <div style={{width:'48px',height:'48px',borderRadius:'50%',background:`linear-gradient(135deg,${pink},${pink2})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:'900',fontSize:'18px',flexShrink:0}}>{r.full_name?.[0]||'?'}</div>
                       <div><p style={{margin:'0 0 2px',fontWeight:'800',color:'#fff',fontSize:'15px'}}>{r.full_name}</p><p style={{margin:0,color:'#888',fontSize:'12px'}}>{r.phone}</p></div>
                     </div>
-                    {r.id_photo_url&&(
-                      <div style={{marginBottom:'12px'}}>
-                        <p style={{margin:'0 0 6px',color:'#888',fontSize:'12px',fontWeight:'600'}}>SUBMITTED ID PHOTO</p>
-                        <img src={r.id_photo_url} alt="ID" style={{width:'100%',borderRadius:'10px',maxHeight:'180px',objectFit:'cover',border:'1px solid #333'}}/>
-                      </div>
-                    )}
+                    {r.id_photo_url&&<img src={r.id_photo_url} alt="ID" style={{width:'100%',borderRadius:'10px',maxHeight:'180px',objectFit:'cover',border:'1px solid #333',marginBottom:'12px'}}/>}
                     <div style={{...row,gap:'8px'}}>
-                      <button style={{...btn(),flex:1,padding:'12px'}} onClick={()=>verifyRider(r.id,true)}>Approve</button>
-                      <button style={{...btn('#c62828'),flex:1,padding:'12px'}} onClick={()=>verifyRider(r.id,false)}>Reject</button>
+                      <button style={{...btn(),flex:1,padding:'12px'}} onClick={()=>verifyRider(r.id,true)}>✅ Approve</button>
+                      <button style={{...btn('#c62828'),flex:1,padding:'12px'}} onClick={()=>verifyRider(r.id,false)}>✕ Reject</button>
                     </div>
                   </div>
                 ))
@@ -832,15 +721,21 @@ export default function App(){
           {/* EARNINGS */}
           {dTab==='earnings'&&(
             <>
-              <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Earnings</h3>
-              <div style={{background:cardBg,borderRadius:'16px',padding:'20px',textAlign:'center'}}>
-                <p style={{margin:'0 0 4px',color:'#666',fontSize:'12px',letterSpacing:'1px'}}>TODAY'S NET</p>
-                <p style={{margin:0,fontWeight:'900',fontSize:'48px',color:pink2}}>${(stats.earnings*0.80).toFixed(2)}</p>
-                <p style={{margin:'4px 0 0',color:'#444',fontSize:'13px'}}>After 20% platform fee</p>
+              <h3 style={{margin:'0 0 14px',color:'#fff',fontWeight:'900',fontSize:'18px'}}>Earnings</h3>
+              <div style={{background:`linear-gradient(135deg,${pink},${pink2})`,borderRadius:'16px',padding:'20px',textAlign:'center',marginBottom:'12px'}}>
+                <p style={{margin:'0 0 4px',color:'rgba(255,255,255,0.8)',fontSize:'12px',letterSpacing:'1px'}}>TODAY'S NET</p>
+                <p style={{margin:'0 0 4px',fontWeight:'900',fontSize:'48px',color:'#fff'}}>${(stats.earnings*0.80).toFixed(2)}</p>
+                <p style={{margin:0,color:'rgba(255,255,255,0.7)',fontSize:'13px'}}>After 20% platform fee</p>
               </div>
-              <div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
-                {[['Gross',`$${stats.earnings.toFixed(2)}`],['Fee (20%)',`-$${(stats.earnings*0.20).toFixed(2)}`],['You Keep',`$${(stats.earnings*0.80).toFixed(2)}`]].map(([k,v],i)=>(
-                  <div key={k} style={{...row,justifyContent:'space-between',paddingBottom:i<2?'10px':'0',borderBottom:i<2?'1px solid #2a2a2a':'none',marginBottom:i<2?'10px':'0'}}><span style={{color:'#888',fontSize:'13px'}}>{k}</span><span style={{color:i===2?pink2:'#ccc',fontWeight:i===2?'900':'600',fontSize:'13px'}}>{v}</span></div>
+              <div style={{background:cardBg,borderRadius:'14px',padding:'16px',marginBottom:'12px'}}>
+                {[['Gross Fares',`$${stats.earnings.toFixed(2)}`],['Platform (20%)',`-$${(stats.earnings*0.20).toFixed(2)}`],['You Keep',`$${(stats.earnings*0.80).toFixed(2)}`]].map(([k,v],i)=>(
+                  <div key={k} style={{...row,justifyContent:'space-between',paddingBottom:i<2?'10px':'0',borderBottom:i<2?'1px solid #2a2a2a':'none',marginBottom:i<2?'10px':'0'}}><span style={{color:'#888',fontSize:'14px'}}>{k}</span><span style={{color:i===2?pink2:'#ccc',fontWeight:i===2?'900':'600',fontSize:'14px'}}>{v}</span></div>
+                ))}
+              </div>
+              <div style={{background:cardBg,borderRadius:'14px',padding:'16px'}}>
+                <p style={{margin:'0 0 12px',fontWeight:'700',color:pink2,fontSize:'13px',letterSpacing:'0.5px'}}>THIS WEEK</p>
+                {[['Trips',stats.weekTrips],['Earnings',`$${stats.weekEarnings.toFixed(2)}`],['Net (80%)',`$${(stats.weekEarnings*0.80).toFixed(2)}`]].map(([k,v])=>(
+                  <div key={k} style={{...row,justifyContent:'space-between',marginBottom:'8px'}}><span style={{color:'#888',fontSize:'14px'}}>{k}</span><span style={{color:'#ccc',fontWeight:'700',fontSize:'14px'}}>{v}</span></div>
                 ))}
               </div>
             </>
@@ -849,9 +744,9 @@ export default function App(){
           {/* MAP */}
           {dTab==='map'&&(
             <>
-              <h3 style={{margin:0,color:'#fff',fontWeight:'800'}}>Live Map</h3>
-              <div style={{borderRadius:'16px',overflow:'hidden',border:'1px solid #2a2a2a',height:'400px'}}>
-                <LiveMap userCoord={userCoord} height="400px"/>
+              <h3 style={{margin:'0 0 14px',color:'#fff',fontWeight:'900',fontSize:'18px'}}>Live Map — Chattanooga</h3>
+              <div style={{borderRadius:'16px',overflow:'hidden',border:`1px solid ${pink}`,height:'420px'}}>
+                <LiveMap userCoord={userCoord} height="420px"/>
               </div>
             </>
           )}
