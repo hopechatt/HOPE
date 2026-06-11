@@ -333,7 +333,15 @@ export default function App(){
           <h2 style={{color:'#fff',margin:'14px 0 4px',fontSize:'22px',fontWeight:'900'}}>Rider Code of Conduct</h2>
         </div>
         <div style={{background:cardBg,borderRadius:'16px',padding:'16px',display:'flex',flexDirection:'column',gap:'14px',maxHeight:'52vh',overflowY:'auto'}}>
-          {[['Gender Policy','Women and children only (boys under 12). Male adults = immediate cancellation, no refund.'],['ID Verification','Submit a photo ID for manual verification.'],['Respectful Behavior','No harassment, profanity, or aggression.'],['Child Safety','Bring appropriate car seats per Tennessee law.'],['Zero Tolerance','No smoking, vaping, or open alcohol/drugs.'],['Right to Refuse','Driver may cancel if she feels unsafe.'],['Privacy','We collect name, email, phone, GPS (active trips only). We never sell your data.']].map(([t,d])=>(
+          {[['Women & Children Only (P5)','You agree to only transport female passengers and children. This is a strict policy with zero exceptions.'],
+            ['Right to Cancel Men','You have the absolute right and obligation to cancel any ride immediately, without penalty, if a male passenger over age 18 attempts to enter your vehicle. Report the incident through the app immediately.'],
+            ['ID Verification','Submit a government-issued photo ID for manual verification before booking is unlocked. No account sharing permitted.'],
+            ['Respectful Behavior','No harassment, profanity, or aggression toward the driver or other passengers at any time.'],
+            ['Child Safety Seats','You are not required to provide car seats. The adult guardian accompanying a small child must properly install and secure the child's car seat before the vehicle moves.'],
+            ['Zero Tolerance — Drugs & Alcohol','Hope enforces a zero-tolerance policy regarding the use of drugs or alcohol while operating the vehicle or riding as a passenger.'],
+            ['Zero Tolerance — Smoking','No smoking, vaping, or open alcohol/drug containers in the vehicle at any time.'],
+            ['Right to Refuse','The driver may cancel any ride at any time if she feels unsafe. Cancelled fares due to policy violations are non-refundable.'],
+            ['Privacy','We collect name, email, phone, and GPS (active trips only). We never sell your data to third parties.']].map(([t,d])=>(
             <div key={t}><p style={{margin:'0 0 3px',fontWeight:'700',color:pink2,fontSize:'13px'}}>{t}</p><p style={{margin:0,color:'#bbb',fontSize:'13px',lineHeight:'1.5'}}>{d}</p></div>
           ))}
         </div>
