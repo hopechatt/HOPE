@@ -27,12 +27,38 @@ const inp={background:'#2a2a2a',border:'1px solid #333',borderRadius:'12px',
   padding:'14px 16px',color:'#fff',fontSize:'15px',width:'100%',boxSizing:'border-box',outline:'none'};
 const row={display:'flex',flexDirection:'row',alignItems:'center'};
 
-function calcFare(distMi=2.8,durMin=8,hasPet=false,extraStops=0){
-  const base=3.50,dist=distMi*1.50,dur=durMin*0.30,pet=hasPet?5:0,stop=extraStops*1.50;
-  const total=base+dist+dur+pet+stop;
-  return {base:base.toFixed(2),dist:dist.toFixed(2),dur:dur.toFixed(2),
-    pet:pet.toFixed(2),stops:stop.toFixed(2),total:total.toFixed(2),
-    distMi:distMi.toFixed(1),durMin:Math.round(durMin)};
+function isAfterHours(){
+  const h=new Date().getHours();
+  return h>=17&&h<20; // 5pm-8pm
+}
+
+function calcFare(distMi=2.8,durMin=8,hasPet=false,extraStops=0,undeclaredPets=0){
+  const afterHours=isAfterHours();
+  const base      = afterHours ? 10.00 : 8.00;
+  const perMile   = afterHours ? 1.75  : 1.50;
+  const perMin    = afterHours ? 0.50  : 0.30;
+  const dist      = distMi * perMile;
+  const dur       = durMin * perMin;
+  const pet       = hasPet ? 5.00 : 0;          // declared pet fee
+  const undecPet  = undeclaredPets * 10.00;      // undeclared pet penalty
+  // Up to 2 stops: $0.50 per stop + 5 min wait included, then $0.25/min extra
+  const stopCount = Math.min(extraStops, 2);
+  const stopBase  = stopCount * 0.50;
+  const total     = base + dist + dur + pet + undecPet + stopBase;
+  return {
+    base:       base.toFixed(2),
+    dist:       dist.toFixed(2),
+    dur:        dur.toFixed(2),
+    pet:        pet.toFixed(2),
+    undecPet:   undecPet.toFixed(2),
+    stops:      stopBase.toFixed(2),
+    total:      total.toFixed(2),
+    distMi:     distMi.toFixed(1),
+    durMin:     Math.round(durMin),
+    afterHours,
+    perMile,
+    perMin,
+  };
 }
 
 async function geocodeAddress(addr){
@@ -494,8 +520,15 @@ export default function App(){
                       <div style={{textAlign:'right'}}><p style={{margin:0,fontWeight:'900',color:pink2,fontSize:'22px'}}>${fare.total}</p><p style={{margin:0,color:'#555',fontSize:'11px'}}>estimated</p></div>
                     </div>
                     <div style={{background:cardBg,borderRadius:'14px',padding:'14px'}}>
+                      {fare.afterHours&&<div style={{background:'rgba(255,152,0,0.15)',border:'1px solid #ff9800',borderRadius:'8px',padding:'6px 10px',marginBottom:'8px'}}><p style={{margin:0,color:'#ff9800',fontSize:'12px',fontWeight:'700'}}>⏰ After-Hours Pricing (5pm–8pm)</p></div>}
                       <p style={{margin:'0 0 10px',fontWeight:'700',color:pink2,fontSize:'12px',letterSpacing:'0.5px'}}>FARE BREAKDOWN</p>
-                      {[['Base Fare',`$${fare.base}`],[`Distance (${fare.distMi}mi)`,`$${fare.dist}`],[`Duration (${fare.durMin}min)`,`$${fare.dur}`],hasPet&&['Pet','$5.00'],stops.filter(Boolean).length>0&&['Stops',`$${fare.stops}`]].filter(Boolean).map(([k,v])=>(
+                      {[
+                        [`Base Fare`,`$${fare.base}`],
+                        [`Distance (${fare.distMi}mi @ $${fare.perMile}/mi)`,`$${fare.dist}`],
+                        [`Duration (${fare.durMin}min @ $${fare.perMin}/min)`,`$${fare.dur}`],
+                        hasPet&&[`Declared Pet`,`$${fare.pet}`],
+                        stops.filter(Boolean).length>0&&[`Stops (${stops.filter(Boolean).length} × $0.50)`,`$${fare.stops}`],
+                      ].filter(Boolean).map(([k,v])=>(
                         <div key={k} style={{...row,justifyContent:'space-between',marginBottom:'6px'}}><span style={{color:'#888',fontSize:'12px'}}>{k}</span><span style={{color:'#ccc',fontSize:'13px'}}>{v}</span></div>
                       ))}
                       <div style={{borderTop:'1px solid #333',paddingTop:'10px',...row,justifyContent:'space-between'}}><span style={{color:'#fff',fontWeight:'800',fontSize:'15px'}}>Total</span><span style={{color:pink2,fontWeight:'900',fontSize:'20px'}}>${fare.total}</span></div>
